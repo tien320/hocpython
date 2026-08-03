@@ -1,6 +1,7 @@
 """
-Tổng hợp các bài từ 1 đến 10 trong thư mục học Python.
+Học kiểu dữ liệu nguyên thủy (int float str bool) biến và toán tử
 """
+
 
 
 def bai1():

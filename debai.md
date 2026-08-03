@@ -166,3 +166,143 @@ Tệp này có thể mở rộng thêm ví dụ mẫu hoặc lời giải tham k
 ### Bài 10:
 
 - Xoay vòng List (Rotate List)Mục tiêu: Ứng dụng cắt lát (slicing) và ghép danh sách (+).Đề bài:Cho danh sách arr = [1, 2, 3, 4, 5, 6, 7] và số nguyên $k = 3$.Hãy xoay vòng danh sách sang phải $k$ bước (các phần tử ở cuối dịch chuyển lên đầu).Giải thích: Xoay 1 bước: [7, 1, 2, 3, 4, 5, 6] $\rightarrow$ Xoay 3 bước: [5, 6, 7, 1, 2, 3, 4].Output mong muốn: [5, 6, 7, 1, 2, 3, 4]
+
+## Ngày 4
+
+### Bài 1: Duyệt và định dạng hiển thị bảng dữ liệu
+
+Mục tiêu: TRUY CẤP dữ liệu cơ bản từ List of Dicts.
+
+Đề bài: Cho bảng dữ liệu nhân viên:
+
+Python
+employees = [
+{"id": "NV01", "name": "Nguyễn Văn An", "department": "IT", "salary": 18000000},
+{"id": "NV02", "name": "Trần Thị Bích", "department": "HR", "salary": 12000000},
+{"id": "NV03", "name": "Lê Hoàng Cường", "department": "IT", "salary": 25000000}
+]
+Duyệt qua danh sách và in ra màn hình dạng dòng gọn gàng:
+
+[NV01] Nguyễn Văn An - Phòng IT - Lương: 18,000,000 VNĐ
+
+### Bài 2: Lọc dữ liệu theo điều kiện đơn (WHERE clause)
+
+Mục tiêu: LỌC (Filter) dữ liệu dựa trên giá trị của một Key.
+
+Đề bài: Cho danh sách sản phẩm:
+
+Python
+products = [
+{"name": "Laptop Dell", "price": 15000000, "in_stock": True},
+{"name": "Chuột Logitech", "price": 350000, "in_stock": False},
+{"name": "Bàn phím Akko", "price": 1200000, "in_stock": True},
+{"name": "Màn hình LG", "price": 4500000, "in_stock": False}
+]
+Lọc ra danh sách các sản phẩm vừa còn hàng (in_stock == True) vừa có giá dưới 5,000,000 VNĐ.
+
+### Bài 3: Tính toán tổng hợp (Aggregation: SUM, AVG)
+
+Mục tiêu: Tính toán thống kê trên cột dữ liệu.
+
+Đề bài: Cho bảng điểm học sinh:
+
+Python
+students = [
+{"name": "An", "math": 8.5, "physics": 7.0},
+{"name": "Bình", "math": 9.0, "physics": 9.5},
+{"name": "Cường", "math": 6.0, "physics": 8.0}
+]
+Thêm một Key mới "avg_score" vào từng Dict đại diện cho điểm trung bình Toán và Lý của học sinh đó.
+
+Tính điểm trung bình môn Toán của cả lớp.
+
+### Bài 4: Tìm giá trị cực trị (MAX / MIN row)
+
+Mục tiêu: Tìm bản ghi (Dictionary) chứa giá trị cao/thấp nhất.
+
+Đề bài: Cho danh sách các bài viết trên mạng xã hội:
+
+Python
+posts = [
+{"id": 101, "title": "Học Python cơ bản", "views": 1500, "likes": 230},
+{"id": 102, "title": "Data Engineering là gì?", "views": 4200, "likes": 580},
+{"id": 103, "title": "Mẹo dùng List Comprehension", "views": 3100, "likes": 410}
+]
+Tìm và in ra thông tin bài viết có lượt tương tác cao nhất (likes nhiều nhất) mà không dùng thư viện ngoài.
+
+### Bài 5: Gom nhóm dữ liệu (GROUP BY)
+
+Mục tiêu: Tư duy nhóm dữ liệu theo thuộc tính (Cực kỳ quan trọng cho Data Engineer / Data Analyst).
+
+Đề bài: Cho danh sách đơn hàng:
+
+Python
+orders = [
+{"order_id": 1, "category": "Điện thoại", "amount": 10000000},
+{"order_id": 2, "category": "Phụ kiện", "amount": 200000},
+{"order_id": 3, "category": "Điện thoại", "amount": 15000000},
+{"order_id": 4, "category": "Phụ kiện", "amount": 500000},
+{"order_id": 5, "category": "Gia dụng", "amount": 2000000}
+]
+Gom nhóm và tính tổng doanh thu (amount) theo từng danh mục (category).
+
+Gợi ý Output: {"Điện thoại": 25000000, "Phụ kiện": 700000, "Gia dụng": 2000000}.
+
+### Bài 6: Xử lý dữ liệu Dict lồng nhau phức tạp (Nested Structures)
+
+Mục tiêu: Bóc tách dữ liệu từ các Key chứa List hoặc Dict bên trong.
+
+Đề bài: Cho thông tin giỏ hàng của người dùng:
+
+Python
+cart = [
+{"item": "Áo sơ mi", "price": 300000, "quantity": 2, "tags": ["thời trang", "nam"]},
+{"item": "Quần Jean", "price": 500000, "quantity": 1, "tags": ["thời trang", "nam", "giảm giá"]},
+{"item": "Bình nước", "price": 100000, "quantity": 3, "tags": ["gia dụng"]}
+]
+Tính tổng số tiền phải thanh toán của toàn bộ giỏ hàng (Thành tiền = price \* quantity).
+
+Lọc ra danh sách tên các mặt hàng có gắn tag "giảm giá".
+
+### Bài 7: Cập nhật và chuẩn hóa dữ liệu hàng loạt (Data Cleaning)
+
+Mục tiêu: Cập nhật dữ liệu thỏa mãn điều kiện nhất định.
+
+Đề bài: Cho bảng dữ liệu nhân sự bị lỗi định dạng tên và lương:
+
+Python
+users = [
+{"username": " an_nguyen ", "role": "admin", "active": True},
+{"username": "binh_tran", "role": "user", "active": False},
+{"username": "cuong_le ", "role": "user", "active": True}
+]
+Loại bỏ khoảng trắng thừa ở hai đầu của username và chuyển thành chữ in hoa.
+
+Đổi trạng thái active của tất cả tài khoản có role == "user" thành False.
+
+### Bài 8: Kết hợp hai bảng dữ liệu (Inner Join / Merge)
+
+Mục tiêu: Ghép nối dữ liệu từ 2 List of Dicts dựa trên Key chung (user_id).
+
+Đề bài: Cho 2 bảng dữ liệu riêng biệt:
+
+Python
+users = [
+{"user_id": 1, "name": "An"},
+{"user_id": 2, "name": "Bình"},
+{"user_id": 3, "name": "Cường"}
+]
+
+orders = [
+{"order_id": 101, "user_id": 1, "total": 500000},
+{"order_id": 102, "user_id": 2, "total": 300000},
+{"order_id": 103, "user_id": 1, "total": 150000}
+]
+Hãy tạo danh sách mới order_details kết hợp thông tin từ 2 bảng trên, có dạng:
+
+Python
+[
+{"order_id": 101, "customer_name": "An", "total": 500000},
+{"order_id": 102, "customer_name": "Bình", "total": 300000},
+{"order_id": 103, "customer_name": "An", "total": 150000}
+]

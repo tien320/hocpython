@@ -1,3 +1,6 @@
+"""
+Cấu trúc dữ liệu List và Tuple (truy cập slice thêm/sửa/xóa)
+"""
 # Bài 1: Quản lý todo list (append/remove/insert)
 # Bài 2: Lấy cắt list (first 3, last 4, vị trí lẻ, đảo ngược)
 # Bài 3: Tìm giá trị lớn thứ hai trong list

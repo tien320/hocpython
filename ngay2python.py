@@ -1,7 +1,6 @@
 """Bài tập Python - Ngày 2
 
-Các bài tập cơ bản: lọc, thống kê, chuẩn hoá dữ liệu.
-Tôi đã sửa lỗi indent, tách logic vào hàm, và làm đầu ra rõ ràng hơn.
+Học cấu trúc điều kiện (if elif else) vòng lặp for while
 """
 
 from typing import List, Any, Dict
