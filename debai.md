@@ -124,3 +124,45 @@ Lọc sản phẩm dưới `1_000_000` → `['Chuột', 'Bàn phím', 'Tai nghe'
 
 Tệp này có thể mở rộng thêm ví dụ mẫu hoặc lời giải tham khảo cho từng bài khi cần.
 ```
+
+## Ngày 3
+
+### Bài 1:
+
+- Thao tác thêm, sửa, xóa trên List cơ bảnMục tiêu: Nắm vững .append(), .insert(), .remove(), .pop().Đề bài:Tạo danh sách todos = ["Học Python", "Đọc sách", "Tập thể dục"].Thêm công việc "Đi chợ" vào cuối danh sách.Chèn công việc "Uống nước" vào đầu danh sách (index 0).Xóa công việc "Đọc sách" khỏi danh sách.Lấy công việc cuối cùng ra khỏi danh sách và in công việc đó ra màn hình.
+
+### Bài 2:
+
+- Cắt lát (Slicing) danh sách nâng caoMục tiêu: Làm chủ cú pháp list[start:stop:step].Đề bài:Cho danh sách numbers = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100].In ra 3 phần tử đầu tiên.In ra 4 phần tử cuối cùng.In ra danh sách chứa các phần tử ở vị trí index lẻ (1, 3, 5, ...).In ra danh sách đảo ngược của numbers.
+
+### Bài 3:
+
+- Tìm giá trị lớn thứ hai trong ListMục tiêu: Tư duy sắp xếp hoặc lọc phần tử lớn nhất.Đề bài:Cho mảng điểm số: scores = [85, 92, 78, 92, 88, 76, 90].Tìm và in ra giá trị lớn thứ hai trong danh sách (chú ý trường hợp có hai giá trị lớn nhất trùng nhau).Output mong muốn: 90
+
+### Bài 4:
+
+- Chuyển đổi và thao tác trên Tuple (Immutable Workaround)Mục tiêu: Hiểu bản chất không thể thay đổi của Tuple và cách chuyển đổi qua lại với List.Đề bài:Cho một Tuple chứa thông tin cố định: info = ("Nguyễn Văn A", 2002, "Ha Noi").Thử thay đổi năm sinh thành 2003 trực tiếp và quan sát lỗi báo về.Chuyển info sang kiểu List, cập nhật năm sinh thành 2003, thêm quê quán "Việt Nam" vào cuối, sau đó đóng gói lại thành Tuple mới.
+
+### Bài 5:
+
+- Tách danh sách thành các phần nhỏ (Chunking)Mục tiêu: Kết hợp range() và cắt lát slice trong vòng lặp.Đề bài:Cho một danh sách gồm 9 phần tử: data = [1, 2, 3, 4, 5, 6, 7, 8, 9].Chia danh sách này thành các danh sách con có độ dài $n = 3$.Output mong muốn: [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+
+### Bài 6:
+
+- Đảo ngược các chuỗi bên trong ListMục tiêu: Duyệt List và áp dụng slicing [::-1] cho từng phần tử chuỗi.Đề bài:Cho danh sách các từ: words = ["python", "developer", "data", "pipeline"].Tạo một danh sách mới chứa các từ đã bị đảo ngược ký tự.Output mong muốn: ['nohtyp', 'repoleved', 'atad', 'enilepip']
+
+### Bài 7:
+
+- Gộp hai List và loại bỏ trùng lặp giữ nguyên thứ tựMục tiêu: Nắm vững .extend() hoặc toán tử + kết hợp kiểm tra not in.Đề bài:Cho hai danh sách:list1 = [1, 3, 5, 7, 9]list2 = [3, 4, 5, 6, 7]Gộp hai danh sách trên thành một danh sách duy nhất chỉ chứa các phần tử không trùng lặp và giữ đúng thứ tự xuất hiện.Output mong muốn: [1, 3, 5, 7, 9, 4, 6]
+
+### Bài 8:
+
+- Đóng gói và Mở gói Tuple (Tuple Packing & Unpacking)Mục tiêu: Thực hành kỹ thuật Unpacking dữ liệu rất phổ biến trong Python.Đề bài:Cho một Tuple chứa tọa độ và thông tin điểm: record = ("P1", (10.5, 20.0), "Active").Mở gói record ra 3 biến: point_name, coordinates, status.Tiếp tục mở gói biến coordinates ra 2 biến tọa độ x và y.In ra thông tin dạng: Điểm P1 tại vị trí X=10.5, Y=20.0 đang ở trạng thái Active.
+
+### Bài 9:
+
+- Xóa tất cả các phần tử trùng lặp đứng liền kềMục tiêu: Duyệt List với chỉ số index để so sánh phần tử hiện tại và phần tử trước đó.Đề bài:Cho danh sách bị lặp liên tiếp: nums = [1, 1, 2, 3, 3, 3, 2, 4, 4, 1].Rút gọn danh sách sao cho các phần tử giống nhau đứng cạnh nhau chỉ giữ lại 1 đại diện.Output mong muốn: [1, 2, 3, 2, 4, 1]
+
+### Bài 10:
+
+- Xoay vòng List (Rotate List)Mục tiêu: Ứng dụng cắt lát (slicing) và ghép danh sách (+).Đề bài:Cho danh sách arr = [1, 2, 3, 4, 5, 6, 7] và số nguyên $k = 3$.Hãy xoay vòng danh sách sang phải $k$ bước (các phần tử ở cuối dịch chuyển lên đầu).Giải thích: Xoay 1 bước: [7, 1, 2, 3, 4, 5, 6] $\rightarrow$ Xoay 3 bước: [5, 6, 7, 1, 2, 3, 4].Output mong muốn: [5, 6, 7, 1, 2, 3, 4]
