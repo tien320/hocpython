@@ -125,3 +125,45 @@ from track
 where MediaTypeId in (1,2) and UnitPrice > 0.99
 order by UnitPrice desc, Milliseconds asc
 limit 6; 
+-- Kiểu dữ liệu PostgreSQL (INT VARCHAR TIMESTAMP BOOL) & ép kiểu
+use chinook;
+/* Nhu cầu ép kiểu,PostgreSQL (::),MySQL (CAST)
+Số thập phân chính xác "CAST(x AS DECIMAL(10, 2))"
+Số thực dấu chấm động,CAST(x AS DOUBLE) hoặc CAST(x AS FLOAT)
+Số nguyên,CAST(x AS SIGNED) (Số nguyên có dấu)
+Chuỗi chữ,CAST(x AS CHAR)
+*/
+/*Bài 1 (Chia số nguyên): Tính đơn giá trung bình của mỗi miligiây của bài hát bằng cách lấy UnitPrice / Milliseconds trong bảng track.
+
+Yêu cầu: Hãy ép kiểu UnitPrice hoặc Milliseconds sang NUMERIC để kết quả không bị trả về số 0 do phép chia nguyên.
+*/
+select Name, UnitPrice, Milliseconds, ( UnitPrice / Milliseconds ) as Price_per_Ms
+from track 
+limit 10;
+/* Bài 2 (Ép TIMESTAMP sang DATE): 
+Lấy danh sách các hóa đơn trong bảng invoice được lập vào đúng ngày '2021-03-14'.
+Yêu cầu: Ép kiểu cột InvoiceDate sang kiểu DATE bằng toán tử :: để loại bỏ phần giờ phút khi so sánh.
+*/
+select InvoiceId, InvoiceDate, Total
+from invoice
+where Date(InvoiceDate) = '2021-03-14';
+/* Bài 3 (Ghép Chuỗi với Số): 
+Lấy danh sách khách hàng từ bảng customer.
+Yêu cầu: Tạo một cột mới đặt tên là Khach_Hang_Info có định dạng chuỗi: 'Mã: [CustomerId] - Tên: [FirstName]' (dùng phép ghép chuỗi || và ép kiểu CustomerId sang VARCHAR).
+*/
+select CustomerId, FirstName, concat('Mã: ', CustomerId, '- Tên ', FirstName) as Khach_hang_info
+from customer;
+/* Bài 4 (Trích xuất Năm & Làm tròn): Từ bảng invoice, lấy ra InvoiceId, Total.
+
+Yêu cầu: Ép kiểu cột Total sang INT (để làm tròn tiền) đặt tên là Total_Rounded, và ép kiểu InvoiceDate sang VARCHAR để trích xuất 4 ký tự đầu tiên (Năm).
+*/
+select InvoiceId, Total, cast(Total as signed) as Total_Rounded, cast(InvoiceDate as char) as date_string
+from invoice;
+/*
+Bài 5 (Cú pháp chuẩn CAST()): 
+Sử dụng cú pháp chuẩn CAST(column AS type) thay vì :: để chuyển cột Bytes trong bảng track từ dạng số sang dạng VARCHAR, 
+lọc những bài hát có Bytes dưới 1,000,000 bytes.
+*/
+select Name, cast(Bytes as char) as bytes
+from track
+where Bytes < 1000000;
