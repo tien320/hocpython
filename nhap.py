@@ -1,22 +1,43 @@
-users = [
-    {"user_id": 1, "name": "An"},
-    {"user_id": 2, "name": "Bình"},
-    {"user_id": 3, "name": "Cường"}
-]
+products = {
+    "P1": {"name": "Laptop", "price": 1000, "stock": 5},
+    "P2": {"name": "Phone", "price": 500, "stock": 10},
+    "P3": {"name": "Mouse", "price": 20, "stock": 0}
+}
 
-orders = [
-    {"order_id": 101, "user_id": 1, "total": 500000},
-    {"order_id": 102, "user_id": 2, "total": 300000},
-    {"order_id": 103, "user_id": 1, "total": 150000}
-]
-user_map = {user['user_id']: user['name'] for user in users}
-order_details = []
-for order in orders:
-    if order['user_id'] in user_map:
-        order_details.append({
-            "order_id": order['order_id'],
-            "user_name": user_map[order['user_id']],
-            "total": order['total']
-        })
-import pprint
-pprint.pprint(order_details)    
+# Hàm thanh toán giỏ hàng.
+# cart là danh sách các cặp (product_id, quantity).
+def checkout(cart, products):
+    total_bill = 0
+
+    for product_id, quantity in cart:
+        if product_id not in products:
+            print(f"Sản phẩm {product_id} không tồn tại.")
+            continue
+
+        product = products[product_id]
+        if quantity <= 0:
+            print(f"Số lượng cho {product_id} phải lớn hơn 0.")
+            continue
+
+        if product["stock"] < quantity:
+            print(f"{product['name']} chỉ còn {product['stock']} chiếc. Không thể mua {quantity}.")
+            continue
+
+        price = product["price"]
+        item_total = price * quantity
+        total_bill += item_total
+
+        print(f"{product['name']}: {quantity} x {price} = {item_total}")
+
+    return total_bill
+
+
+def main():
+    cart = [("P1", 1), ("P2", 2), ("P3", 1), ("P4", 1)]
+    print("Giỏ hàng:", cart)
+    total = checkout(cart, products)
+    print("Tổng tiền phải trả:", total)
+
+
+if __name__ == "__main__":
+    main()
