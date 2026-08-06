@@ -46,3 +46,7 @@ python nhap.py
 ## Ghi chú
 
 Đây là repository phục vụ mục đích học tập — nội dung có thể được cập nhật thường xuyên.
+
+đổi sang oracle
+database non sql mongodb
+truy vấn lồng viết package store procedure function view

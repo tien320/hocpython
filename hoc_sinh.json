@@ -1,0 +1,29 @@
+[
+    {
+        "MaSV": "SV01",
+        "HoTen": "Nguyễn Văn A",
+        "Diem": 8.5,
+        "MonHoc": [
+            "Toán",
+            "Lý"
+        ]
+    },
+    {
+        "MaSV": "SV02",
+        "HoTen": "Trần Thị B",
+        "Diem": 9.0,
+        "MonHoc": [
+            "Văn",
+            "Anh"
+        ]
+    },
+    {
+        "MaSV": "SV03",
+        "HoTen": "Lê Hoàng C",
+        "Diem": 7.0,
+        "MonHoc": [
+            "Sử",
+            "Địa"
+        ]
+    }
+]

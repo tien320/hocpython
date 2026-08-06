@@ -1,0 +1,20 @@
+[
+    {
+        "id": "P01",
+        "name": "Bàn phím cơ",
+        "price": 1200000,
+        "quantity": 15
+    },
+    {
+        "id": "P02",
+        "name": "Chuột không dây",
+        "price": 450000,
+        "quantity": 30
+    },
+    {
+        "id": "P03",
+        "name": "Màn hình 24 inch",
+        "price": 3200000,
+        "quantity": 8
+    }
+]
