@@ -1,0 +1,166 @@
+-- bai1
+SELECT 
+   a.ALBUMID,a.TITLE AS album_title,ar.NAME AS artist_name
+ FROM 
+   album a
+INNER JOIN ARTIST ar
+ON a.ARTISTID  = ar.ARTISTID;
+-- bai2
+SELECT 
+    t.TrackId,
+    t.Name        AS Track_Name,
+    g.Name        AS Genre_Name
+FROM Track t
+INNER JOIN Genre g 
+    ON t.GenreId = g.GenreId
+WHERE g.GENREID = '1';
+-- bai3
+SELECT 
+c.CUSTOMERID AS ID,c.FIRSTNAME AS customer_firstname,c.LASTNAME AS customer_lastname,e.LASTNAME AS employee_lastname ,e.FIRSTNAME AS employee_firstname
+FROM customer c
+INNER JOIN EMPLOYEE e 
+ON c.SUPPORTREPID  = e.EMPLOYEEID 
+WHERE e.EMPLOYEEID =3;
+-- bai4
+SELECT 
+i.INVOICEDATE AS invoice_date,i.TOTAL AS total,c.FIRSTNAME ,c.LASTNAME 
+FROM CUSTOMER c 
+INNER JOIN INVOICE i 
+ON c.CUSTOMERID = i.CUSTOMERID 
+ORDER BY i.INVOICEDATE  DESC 
+offset 0 ROW FETCH NEXT 3 ROWS ONLY;
+-- bai5
+SELECT 
+t.trackid,t.NAME AS track_name ,al.title ,ar.name AS artist_name
+FROM TRACK t 
+INNER JOIN ALBUM al
+ON t.ALBUMID = al.ALBUMID
+INNER JOIN ARTIST ar
+ON al.ARTISTID = ar.ARTISTID;
+-- bai6
+SELECT 
+t.TRACKID ,t.NAME AS track_name,m.NAME AS mediatype_name,g.NAME AS genre_name
+FROM track t
+INNER JOIN MEDIATYPE m 
+ON t.MEDIATYPEID = m.MEDIATYPEID 
+INNER JOIN GENRE g 
+ON g.GENREID = t.GENREID
+WHERE m.NAME  LIKE '%MPEG%';
+-- bai7
+SELECT 
+p.NAME AS playlist_name , t.NAME AS track_name,a.TITLE ,ar.NAME AS artist_name 
+FROM 
+PLAYLIST p 
+INNER JOIN PLAYLISTTRACK pt
+ON p.PLAYLISTID = pt.PLAYLISTID 
+INNER JOIN TRACK t 
+ON pt.TRACKID = t.TRACKID 
+INNER JOIN ALBUM a 
+ON a.ALBUMID = t.ALBUMID 
+INNER JOIN ARTIST ar
+ON ar.ARTISTID = a.ARTISTID; 
+-- bai 8
+SELECT 
+ar.NAME AS artist_name,ar.ARTISTID
+FROM ARTIST ar 
+LEFT JOIN ALBUM al
+ON ar.ARTISTID = al.ARTISTID
+WHERE al.TITLE IS NULL; 
+-- bai9
+SELECT
+e.FIRSTNAME ||' '|| e.LASTNAME AS employee_name,m.FIRSTNAME ||' '|| m.LASTNAME AS manager_name
+FROM EMPLOYEE e 
+LEFT JOIN EMPLOYEE m
+ON m.EMPLOYEEID = e.REPORTSTO;
+--bai10
+SELECT 
+g.GENREID ,g.NAME AS genre_name , count(t.TRACKID ) AS total_track
+FROM genre g
+LEFT JOIN TRACK t 
+ON g.GENREID = t.GENREID
+GROUP BY g.GENREID , g.NAME 
+ORDER BY TOTAL_TRACK DESC, g.NAME ASC;
+--bai11
+SELECT 
+c.CUSTOMERID ,c.FIRSTNAME ||' '|| c.LASTNAME AS customer_name,i.INVOICEID ,i.TOTAL 
+FROM CUSTOMER c 
+FULL OUTER JOIN INVOICE i
+ON c.CUSTOMERID = i.CUSTOMERID;
+SELECT 
+m.MEDIATYPEID ,m.NAME AS mediatype_name,g.NAME AS genre_name 
+FROM MEDIATYPE m 
+CROSS JOIN GENRE g 
+ORDER BY m.MEDIATYPEID ,g.GENREID;
+--bai12
+SELECT 
+sum(TOTAL) AS tonghoadon,
+avg(TOTAL) AS trungbinhhoadon,
+MAX(TOTAL) AS hoadonlonnhat,
+MIN(TOTAL) AS hoadonbenhat,
+COUNT(INVOICEID) AS tongsohoadon
+FROM INVOICE;
+-- bai13
+SELECT 
+i.BILLINGCOUNTRY, sum(i.TOTAL) AS tonghoadon, COUNT(i.INVOICEID) AS tongsohoadon
+FROM INVOICE i 
+GROUP BY i.BILLINGCOUNTRY 
+ORDER BY TONGHOADON DESC;
+-- bai14
+SELECT 
+t.ALBUMID , count(t.ALBUMID ) AS tongsobaihat, AVG(t.MILLISECONDS ) AS trungbinh
+FROM TRACK t 
+WHERE t.MILLISECONDS > 0.99
+GROUP BY t.ALBUMID;
+-- bai15
+SELECT 
+t.COMPOSER , COUNT(t.TRACKID ) AS sobaihat
+FROM TRACK t 
+WHERE t.COMPOSER IS NOT NULL 
+GROUP BY t.COMPOSER 
+HAVING count(t.TRACKID ) >10;
+-- bai 16
+SELECT 
+    CustomerId,
+    COUNT(InvoiceId) AS SoHoaDon,
+    SUM(Total) AS TongTienChi
+FROM Invoice
+WHERE InvoiceDate >= TO_DATE('2010-01-01', 'YYYY-MM-DD') 
+GROUP BY CustomerId                                      
+HAVING COUNT(InvoiceId) >= 6                           
+ORDER BY TongTienChi DESC;
+--bai17
+SELECT 
+t.TRACKID,t.NAME ,t.MILLISECONDS 
+FROM TRACK t 
+WHERE t.MILLISECONDS > (
+SELECT avg(MILLISECONDS ) FROM track
+)
+ORDER BY t.MILLISECONDS DESC;
+-- bai18
+SELECT 
+c.CUSTOMERID ,c.FIRSTNAME ,c.LASTNAME ,c.COUNTRY 
+FROM CUSTOMER c 
+WHERE c.COUNTRY in (
+SELECT distinct e.COUNTRY 
+FROM EMPLOYEE e 
+WHERE e.COUNTRY IS NOT NULL 
+)
+ORDER BY c.COUNTRY , c.CUSTOMERID;
+-- bai 19
+SELECT 
+g.GENREID ,g.NAME 
+FROM GENRE g 
+WHERE EXISTS (
+SELECT 1 
+FROM track t
+INNER JOIN INVOICELINE il ON il.TRACKID = t.TRACKID 
+WHERE t.GENREID = g.GENREID 
+)
+ORDER BY g.GENREID ;
+-- bai20
+SELECT 
+avg(khachhangstat.TONGCHITIEU ) AS trungbinhmoinguoi
+FROM (
+SELECT customerID, sum(total) AS tongchitieu FROM INVOICE 
+GROUP BY CUSTOMERID 
+)khachhangstat;

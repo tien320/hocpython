@@ -15851,3 +15851,4 @@ INSERT INTO PlaylistTrack (PlaylistId, TrackId) VALUES (17, 3290);
 (18, 597);
 commit;
 exit;
+COMMIT;

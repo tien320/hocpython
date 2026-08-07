@@ -1,34 +1,66 @@
-# python_fix_script.py
-with open("Chinook_Oracle.sql", "r", encoding="utf-8") as f:
-    text = f.read()
+import re
 
-# Chuyển cú pháp gộp VALUES (...), (...) thành từng lệnh INSERT riêng
-# Đổi các dòng dạng "    (123, " thành "INSERT INTO ... VALUES (123, "
-lines = text.split("\n")
-new_lines = []
-current_insert_prefix = ""
+def create_bulletproof_sql(input_file, output_file):
+    with open(input_file, 'r', encoding='utf-8', errors='ignore') as f:
+        content = f.read()
 
-for line in lines:
-    stripped = line.strip()
-    if stripped.startswith("INSERT INTO"):
-        # Lưu lại câu lệnh INSERT INTO Table (Cols) VALUES
-        current_insert_prefix = line.split("VALUES")[0] + "VALUES "
-        new_lines.append(line)
-    elif stripped.startswith("(") and current_insert_prefix:
-        # Nếu là dòng chứa dữ liệu tiếp theo
-        clean_line = stripped.rstrip(",")
-        if clean_line.endswith(";"):
-            clean_line = clean_line[:-1]
-            current_insert_prefix = "" # Kết thúc khối insert
+    # 1. Khắc phục lỗi ký tự đặc biệt của Oracle Script
+    content = content.replace("'||chr(39)||'", "''")
+    content = content.replace("'||chr(38)||'", "&")
+
+    raw_statements = content.split(';')
+    
+    inserts = {
+        'EMPLOYEE': [],
+        'CUSTOMER': [],
+        'INVOICE': [],
+        'INVOICELINE': []
+    }
+
+    for stmt in raw_statements:
+        stmt_clean = stmt.strip()
+        if stmt_clean.upper().startswith('INSERT INTO'):
+            match_table = re.search(r'INSERT\s+INTO\s+(\w+)', stmt_clean, re.IGNORECASE)
+            if match_table:
+                table_name = match_table.group(1).upper()
+                if table_name in inserts:
+                    first_values_idx = stmt_clean.upper().find('VALUES')
+                    if first_values_idx != -1:
+                        header = stmt_clean[:first_values_idx + 6]
+                        body = stmt_clean[first_values_idx + 6:]
+                        body = re.sub(r'INSERT\s+INTO\s+\w+\s*(\([^)]+\))?\s*VALUES', '', body, flags=re.IGNORECASE)
+                        
+                        final_stmt = header + ' ' + body.strip()
+                        
+                        # Fix định dạng DATE chuẩn Oracle
+                        final_stmt = re.sub(r"'(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})'", r"TO_DATE('\1 \2', 'YYYY-MM-DD HH24:MI:SS')", final_stmt)
+                        final_stmt = re.sub(r"'(\d{4}-\d{2}-\d{2})'", r"TO_DATE('\1', 'YYYY-MM-DD')", final_stmt)
+                        
+                        inserts[table_name].append(final_stmt + ";")
+
+    # 2. Ghi file với LỆNH XÓA SẠCH DỮ LIỆU CŨ ở đầu
+    with open(output_file, 'w', encoding='utf-8') as f:
+        f.write("-- ======================================================\n")
+        f.write("-- SCRIPT CHÈN DỮ LIỆU TỰ ĐỘNG CHUẨN XÁC 100%\n")
+        f.write("-- ======================================================\n\n")
         
-        if not line.strip().startswith("INSERT"):
-            new_lines.append(current_insert_prefix + clean_line + ";")
-        else:
-            new_lines.append(clean_line + ";")
-    else:
-        new_lines.append(line)
+        # Lệnh dọn dẹp dữ liệu cũ trước khi insert
+        f.write("ALTER TABLE Employee DISABLE CONSTRAINT FK_EmployeeReportsTo;\n")
+        f.write("DELETE FROM InvoiceLine;\n")
+        f.write("DELETE FROM Invoice;\n")
+        f.write("DELETE FROM Customer;\n")
+        f.write("DELETE FROM Employee;\n")
+        f.write("ALTER TABLE Employee ENABLE CONSTRAINT FK_EmployeeReportsTo;\n")
+        f.write("COMMIT;\n\n")
+        
+        # Thứ tự Insert chuẩn: Employee -> Customer -> Invoice -> InvoiceLine
+        for table in ['EMPLOYEE', 'CUSTOMER', 'INVOICE', 'INVOICELINE']:
+            f.write(f"-- INSERT BẢNG {table}\n")
+            for sql in inserts[table]:
+                f.write(sql + "\n")
+            f.write("COMMIT;\n\n")
 
-with open("Chinook_Oracle_Fixed.sql", "w", encoding="utf-8") as f:
-    f.write("\n".join(new_lines))
+    print(f"Đã tạo file '{output_file}' hoàn chỉnh!")
 
-print("Đã tạo xong file Chinook_Oracle_Fixed.sql chuẩn cú pháp Oracle!")
+# Chạy tạo file
+create_bulletproof_sql('Chinook_Oracle_Fixed.sql', 'chinook_perfect_inserts.sql')
