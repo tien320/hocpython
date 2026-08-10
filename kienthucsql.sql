@@ -93,4 +93,85 @@ WHERE      TrangThai = 'Active'     -- 1. Lọc dòng thô trước
 GROUP BY   PhongBanID              -- 2. Gom nhóm theo phòng
 HAVING     COUNT(*) >= 5            -- 3. Lọc nhóm có từ 5 NV trở lên
 ORDER BY   LuongTB DESC;            -- 4. Sắp xếp kết quả cuối cùng
+-- Code cũ: Dùng Correlated Subquery ở WHERE
+SELECT t1.Name, t1.AlbumId, t1.GenreId, t1.UnitPrice
+FROM Track t1
+WHERE t1.UnitPrice > (
+    SELECT AVG(t2.UnitPrice)
+    FROM Track t2
+    WHERE t2.GenreId = t1.GenreId
+);
+-- cte group by
+WITH GenreAvgPrice AS (
+    SELECT GenreId, AVG(UnitPrice) AS AvgPrice
+    FROM Track
+    GROUP BY GenreId
+)
+SELECT 
+    t.Name, 
+    t.AlbumId, 
+    t.GenreId, 
+    t.UnitPrice
+FROM Track t
+JOIN GenreAvgPrice gap ON t.GenreId = gap.GenreId
+WHERE t.UnitPrice > gap.AvgPrice;
+-- window function 
+WITH TrackWithAvg AS (
+    SELECT 
+        Name, 
+        AlbumId, 
+        GenreId, 
+        UnitPrice,
+        AVG(UnitPrice) OVER (PARTITION BY GenreId) AS AvgPrice
+    FROM Track
+)
+SELECT Name, AlbumId, GenreId, UnitPrice
+FROM TrackWithAvg
+WHERE UnitPrice > AvgPrice;
+-- Loại bỏ Subquery lặp lại ở SELECT và WHERE
+-- Code cũ: Nhân bản logic SUM(Total) ở 2 nơi khác nhau
+SELECT c.CustomerId, c.FirstName, c.LastName, CustTotal.TotalSpent
+FROM Customer c
+JOIN (
+    SELECT CustomerId, SUM(Total) AS TotalSpent
+    FROM Invoice
+    GROUP BY CustomerId
+) CustTotal ON c.CustomerId = CustTotal.CustomerId
+WHERE CustTotal.TotalSpent > (
+    SELECT AVG(TotalSpent)
+    FROM (
+        SELECT SUM(Total) AS TotalSpent
+        FROM Invoice
+        GROUP BY CustomerId
+    )
+)
+ORDER BY CustTotal.TotalSpent DESC;
+-- cte
+WITH 
+    -- Tầng 1: Tính tổng chi tiêu từng khách hàng (Viết 1 lần duy nhất)
+    CustomerSpending AS (
+        SELECT 
+            CustomerId, 
+            SUM(Total) AS TotalSpent
+        FROM Invoice
+        GROUP BY CustomerId
+    ),
+    
+    -- Tầng 2: Tính mức chi tiêu trung bình toàn bộ hệ thống
+    OverallAverage AS (
+        SELECT AVG(TotalSpent) AS AvgSpent
+        FROM CustomerSpending
+    )
+
+-- Truy vấn chính: Lọc kết quả
+SELECT 
+    c.CustomerId, 
+    c.FirstName, 
+    c.LastName, 
+    cs.TotalSpent
+FROM CustomerSpending cs
+JOIN Customer c ON cs.CustomerId = c.CustomerId
+CROSS JOIN OverallAverage oa
+WHERE cs.TotalSpent > oa.AvgSpent
+ORDER BY cs.TotalSpent DESC;
 
