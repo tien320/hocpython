@@ -127,3 +127,52 @@ with open('data.csv', mode='r', encoding='utf-8') as f_csv:
 2. **`utf-8`**: Cầu nối chuyển đổi giữa **Ký tự con người đọc** và **Chuỗi Byte thiết bị lưu trữ**.
 3. **`json`**: Mạnh về **Serialization** cấu trúc dữ liệu phức tạp (Cây/Lồng nhau), giữ nguyên Kiểu dữ liệu gốc (Typed).
 4. **`csv`**: Mạnh về **Streaming** dữ liệu phẳng dạng bảng (Bản ghi 2D), cực kỳ tiết kiệm RAM nhờ cơ chế duyệt từng dòng (Generator).
+   Dưới đây là tóm tắt đọng lại của buổi học hôm nay về **Correlated Subquery** và **CTE**:
+
+---
+
+### 1. Correlated Subquery (Truy vấn con tương quan)
+
+- **Khái niệm:** Là subquery **phụ thuộc vào dữ liệu của truy vấn bên ngoài (Outer query)**. Với mỗi dòng ở bảng ngoài, subquery sẽ được thực thi lại một lần (hoạt động giống như vòng lặp `for`).
+- **Đặc điểm:**
+- Bên trong subquery có tham chiếu đến cột của bảng ngoài (ví dụ: `WHERE t2.GenreId = t1.GenreId`).
+- Không thể chạy độc lập truy vấn con bên trong nếu không có ngữ cảnh của truy vấn ngoài.
+
+- **Hạn chế:** Hiệu năng chậm nếu tập dữ liệu lớn do phải lặp lại subquery nhiều lần.
+- **Cú pháp cơ bản:**
+
+```sql
+SELECT t1.Name, t1.UnitPrice
+FROM Track t1
+WHERE t1.UnitPrice > (
+    SELECT AVG(t2.UnitPrice)
+    FROM Track t2
+    WHERE t2.GenreId = t1.GenreId -- Liên kết t2 với t1
+);
+
+```
+
+---
+
+### 2. CTE (Common Table Expression)
+
+- **Khái niệm:** Là một **bảng tạm thời (Temporary Result Set)** được định nghĩa bằng từ khóa `WITH`, tồn tại trong phạm vi thực thi của duy nhất câu lệnh SQL đó.
+- **Lợi ích:**
+- Thay thế cho Correlated Subquery hoặc Subquery lồng nhau quá sâu, giúp code **dễ đọc, dễ bảo trì** hơn.
+- Tối ưu hiệu năng tốt hơn nhờ việc gom nhóm/tính toán trước rồi mới tiến hành JOIN hay lọc.
+- Cho phép tái sử dụng bảng tạm nhiều lần hoặc duyệt cây/phân cấp (với `RECURSIVE`).
+
+- **Các dạng Template phổ biến:**
+
+1. **Basic / Clean:** Tách đoạn xử lý/làm sạch dữ liệu thô.
+2. **Multi-stage (Chaining):** Nối tiếp nhiều CTE (`WITH Step1 AS (...), Step2 AS (...)`).
+3. **Deduplication:** Lọc/xóa trùng dữ liệu (dùng `ROW_NUMBER() OVER (PARTITION BY ... ORDER BY ...)`).
+4. **Window Aggregation:** Tính chỉ số nhóm (ví dụ: `AVG() OVER (PARTITION BY ...)`) để so sánh ở câu lệnh ngoài.
+5. **Recursive:** Duyệt sơ đồ tổ chức / phân cấp danh mục hoặc tự sinh chuỗi ngày/số.
+
+---
+
+### 💡 Bài học rút ra (Takeaway)
+
+- Dùng **Correlated Subquery** khi cần kiểm tra điều kiện dòng-theo-dòng đơn giản (như tồn tại với `EXISTS` hoặc so sánh trực tiếp).
+- Ưu tiên chuyển sang dùng **CTE + Window Function** khi truy vấn phức tạp hoặc cần tính toán các chỉ số gom nhóm để code tối ưu, gãy gọn và chuyên nghiệp hơn.
