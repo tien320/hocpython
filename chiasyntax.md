@@ -5,6 +5,7 @@ Tài liệu này tổng hợp toàn bộ các cú pháp (syntax) thực chiến,
 ---
 
 ## 📑 Mục Lục
+
 1. [I/O & Batch Processing (Đọc & Ghi Dữ Liệu)](#1-io--batch-processing)
 2. [Data Exploration & Schema Inspection (Khám Phá & Kiểm Tra)](#2-data-exploration--schema-inspection)
 3. [Filtering, Slicing & Subsetting (Lọc & Truy Vấn)](#3-filtering-slicing--subsetting)
@@ -21,6 +22,7 @@ Tài liệu này tổng hợp toàn bộ các cú pháp (syntax) thực chiến,
 ## 1. I/O & Batch Processing
 
 ### 1.1. Đọc dữ liệu (Ingestion)
+
 ```python
 import pandas as pd
 
@@ -39,7 +41,7 @@ df_parquet = pd.read_parquet('data/source.parquet', columns=['order_id', 'amount
 # Đọc từ Database qua SQLAlchemy
 from sqlalchemy import create_engine
 engine = create_engine('postgresql://user:pass@host:5432/dbname')
-df_sql = pd.read_sql('SELECT id, name, created_at FROM users WHERE status = :status', 
+df_sql = pd.read_sql('SELECT id, name, created_at FROM users WHERE status = :status',
                      con=engine, params={'status': 'ACTIVE'})
 
 # Đọc file dung lượng lớn theo từng batch (Chunking)
@@ -50,6 +52,7 @@ for chunk in pd.read_csv('huge_file.csv', chunksize=chunk_size):
 ```
 
 ### 1.2. Xuất dữ liệu (Storage & Export)
+
 ```python
 # Xuất Parquet chuẩn nén (Khuyên dùng Snappy / ZSTD)
 df.to_parquet('output/data.parquet', compression='snappy', index=False)
@@ -86,6 +89,7 @@ df.nunique()
 ## 3. Filtering, Slicing & Subsetting
 
 ### 3.1. Boolean Masking & Query
+
 ```python
 # Lọc đa điều kiện (&: AND, |: OR, ~: NOT)
 filtered = df[(df['age'] >= 18) & (df['city'].isin(['Hanoi', 'Danang'])) & (df['is_active'] == True)]
@@ -99,6 +103,7 @@ email_valid = df[df['email'].str.contains(r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-
 ```
 
 ### 3.2. Slicing bằng `.loc` và `.iloc`
+
 ```python
 # .loc (Truy cập theo Label / Điều kiện)
 df.loc[df['amount'] > 500, ['order_id', 'user_id', 'amount']]
@@ -112,6 +117,7 @@ df.iloc[0:10, [0, 2, 4]]
 ## 4. Data Cleaning & Missing Values
 
 ### 4.1. Xử lý Missing Data
+
 ```python
 # Thống kê tỷ lệ null
 null_pct = (df.isna().sum() / len(df)) * 100
@@ -127,10 +133,11 @@ df['price'] = df.groupby('category')['price'].transform(lambda x: x.fillna(x.med
 ```
 
 ### 4.2. Xử lý Trùng lặp (Deduplication)
+
 ```python
 # Giữ lại bản ghi mới nhất theo partition
 df_dedup = df.sort_values('updated_at').drop_duplicates(
-    subset=['order_id'], 
+    subset=['order_id'],
     keep='last'
 )
 ```
@@ -157,6 +164,7 @@ df['age'] = pd.to_numeric(df['age'], downcast='unsigned')
 ## 6. Feature Engineering & Transformations
 
 ### 6.1. Conditional Logic (Tương đương `CASE WHEN`)
+
 ```python
 import numpy as np
 
@@ -174,6 +182,7 @@ df['is_high_value'] = np.where(df['amount'] > 1000, 1, 0)
 ```
 
 ### 6.2. Thao tác Ngày Tháng (Datetime Manipulation)
+
 ```python
 df['year'] = df['created_at'].dt.year
 df['month'] = df['created_at'].dt.to_period('M')
@@ -182,6 +191,7 @@ df['is_weekend'] = df['created_at'].dt.dayofweek.isin([5, 6])
 ```
 
 ### 6.3. Chuỗi (String Vectorization)
+
 ```python
 df['name'] = df['name'].str.strip().str.title()
 df['domain'] = df['email'].str.split('@').str[1]
@@ -193,6 +203,7 @@ df['phone_clean'] = df['phone'].str.replace(r'[^0-9]', '', regex=True)
 ## 7. Aggregation, GroupBy & Window Functions
 
 ### 7.1. GroupBy & Multi-Aggregation
+
 ```python
 # Aggregation chuẩn (Named Aggregation)
 summary = df.groupby(['store_id', 'category']).agg(
@@ -204,6 +215,7 @@ summary = df.groupby(['store_id', 'category']).agg(
 ```
 
 ### 7.2. Window Functions (Tương đương SQL `OVER(PARTITION BY ... ORDER BY ...)`)
+
 ```python
 # 1. Running Total (Tổng lũy kế - SUM() OVER(PARTITION BY ... ORDER BY ...))
 df['cumulative_sales'] = df.groupby('user_id')['amount'].cumsum()
@@ -231,6 +243,7 @@ df['rolling_7d_avg'] = (
 ## 8. Joins, Merges & Concatenations
 
 ### 8.1. Merge (SQL JOIN)
+
 ```python
 # Left Join kết hợp 2 bảng
 merged = pd.merge(
@@ -245,6 +258,7 @@ merged = pd.merge(
 ```
 
 ### 8.2. Concat (SQL UNION ALL / Append)
+
 ```python
 # UNION ALL nhiều bảng theo chiều dọc
 df_full_year = pd.concat([df_q1, df_q2, df_q3, df_q4], axis=0, ignore_index=True)
@@ -258,6 +272,7 @@ df_features = pd.concat([df_numerical, df_categorical], axis=1)
 ## 9. Reshaping: Pivot, Melt & Stacking
 
 ### 9.1. Melt (Wide -> Long / Unpivot)
+
 ```python
 # Chuyển các cột doanh thu tháng thành dòng
 long_df = pd.melt(
@@ -270,6 +285,7 @@ long_df = pd.melt(
 ```
 
 ### 9.2. Pivot Table (Long -> Wide)
+
 ```python
 # Tạo ma trận báo cáo
 pivot_df = pd.pivot_table(
@@ -286,13 +302,14 @@ pivot_df = pd.pivot_table(
 
 ## 10. Production Best Practices & Anti-Patterns
 
-| Thao Tác | ❌ Anti-Pattern (Nên Tránh) | ✅ Best Practice (Nên Dùng) | Lý Do |
-| :--- | :--- | :--- | :--- |
-| **Duyệt qua từng dòng** | `for idx, row in df.iterrows():` | Dùng Vectorization: `df['c'] = df['a'] + df['b']` hoặc `np.select` | Nhanh hơn 50x - 500x nhờ code C bên dưới. |
-| **Gán cột cảnh báo** | `df[df['a'] > 0]['b'] = 1` *(SettingWithCopyWarning)* | `df.loc[df['a'] > 0, 'b'] = 1` | Đảm bảo gán trực tiếp vào bộ nhớ DataFrame. |
-| **Thêm từng dòng vào DataFrame** | `df = df.append(new_row)` | Gom vào `list` rồi `pd.concat([df, pd.DataFrame(rows)])` | Tránh việc copy lại toàn bộ DataFrame mỗi lần chèn. |
-| **Chuỗi xử lý (Method Chaining)** | Viết các biến trung gian rải rác | Dùng `(df.query(...).assign(...).groupby(...))` | Dễ đọc, dễ viết unit test, code chuẩn declarative. |
-| **Bộ nhớ (Memory)** | Giữ nguyên kiểu `int64`, `float64` mặc định | Chuyển sang `category`, `int32`, `float32` | Giảm 60-80% dung lượng RAM sử dụng. |
+| Thao Tác                          | ❌ Anti-Pattern (Nên Tránh)                           | ✅ Best Practice (Nên Dùng)                                        | Lý Do                                               |
+| :-------------------------------- | :---------------------------------------------------- | :----------------------------------------------------------------- | :-------------------------------------------------- |
+| **Duyệt qua từng dòng**           | `for idx, row in df.iterrows():`                      | Dùng Vectorization: `df['c'] = df['a'] + df['b']` hoặc `np.select` | Nhanh hơn 50x - 500x nhờ code C bên dưới.           |
+| **Gán cột cảnh báo**              | `df[df['a'] > 0]['b'] = 1` _(SettingWithCopyWarning)_ | `df.loc[df['a'] > 0, 'b'] = 1`                                     | Đảm bảo gán trực tiếp vào bộ nhớ DataFrame.         |
+| **Thêm từng dòng vào DataFrame**  | `df = df.append(new_row)`                             | Gom vào `list` rồi `pd.concat([df, pd.DataFrame(rows)])`           | Tránh việc copy lại toàn bộ DataFrame mỗi lần chèn. |
+| **Chuỗi xử lý (Method Chaining)** | Viết các biến trung gian rải rác                      | Dùng `(df.query(...).assign(...).groupby(...))`                    | Dễ đọc, dễ viết unit test, code chuẩn declarative.  |
+| **Bộ nhớ (Memory)**               | Giữ nguyên kiểu `int64`, `float64` mặc định           | Chuyển sang `category`, `int32`, `float32`                         | Giảm 60-80% dung lượng RAM sử dụng.                 |
 
 ---
-*Tài liệu tổng hợp phục vụ chuẩn hóa quy trình ETL & Data Pipeline.*
+
+_Tài liệu tổng hợp phục vụ chuẩn hóa quy trình ETL & Data Pipeline._
