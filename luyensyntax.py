@@ -47,4 +47,11 @@ df_phongtro['loai_phong_clean'] = df_phongtro['loai_phong'].astype(str).str.stri
 tong_tien = df_phongtro.groupby('loai_phong_clean')['tong_tien'].sum()
 so_phong_2013 = len(df_phongtro[df_phongtro['nam_thue']==2023])
 ma_phong_tieu_dien = df_phongtro.loc[df_phongtro['so_dien_tieu_thu'].idxmax()]
-print(ma_phong_tieu_dien)
+# Lọc dữ liệu: 
+# Trích xuất ra danh sách các phòng thuộc loai_phong là 'VIP' VÀ 
+# có gia_thue nhỏ hơn hoặc bằng 4000000.
+phong_vip_gia_re = df_phongtro[(df_phongtro['loai_phong']=='VIP') & (df_phongtro['gia_thue']<=5000000)]
+print(phong_vip_gia_re)
+# Cập nhật dữ liệu: 
+# Tăng gia_thue thêm 300000, nhưng chỉ áp dụng cho những phòng có loai_phong là 'Standard'.
+df_phongtro.loc[df_phongtro['loai_phong']== 'Standard','gia_thue'] +=300000
