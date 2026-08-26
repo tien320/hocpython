@@ -29,15 +29,3 @@ class Order:
         self.status = "CANCELLED"
     def __repr__(self):
         return f"Order(id={self.id},product_id={self.product_id},quantity={self.quantity},total={self.total_price},status={self.status})"
-if __name__ == "__main__":
-    p1 = Product(1,"chuột",150000,3)
-    mua = int(input())
-    if p1.is_available(mua):
-        p1.reduce_stock(mua)
-        tong_tien = p1.price * mua
-        o1 = Order(1,p1.id,mua,tong_tien)
-        o1.complete()
-        print("hóa đơn",o1)
-        print("đã mua",p1)
-    else:
-        print("đặt hàng thất bại") 
