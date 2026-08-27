@@ -11,7 +11,7 @@ class Product:
             return False
     def reduce_stock(self,quantity):
         if self.is_available(quantity):
-            self.stock= self.stock - quantity
+            self.stock -= quantity
             return True
         return False
     def __repr__(self):
