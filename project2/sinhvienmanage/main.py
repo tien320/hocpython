@@ -5,6 +5,6 @@ def main():
     repo = StudentRepository()
     app = StudentApp(repo)
     app.input_student()
-    app.search()
+    app.run_menu()
 if __name__ == "__main__":
     main()
