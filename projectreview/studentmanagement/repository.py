@@ -1,5 +1,5 @@
 from student import Student
-
+import sqlite3
 class StudentRepository:
     def __init__(self):
         self.storage = []
@@ -29,4 +29,21 @@ class StudentRepository:
             return False
         self.storage.remove(student)
         return True
-
+class DatabaseRepository:
+    def __init__(self, db_name: str = "student.db"):
+        self.db_name = db_name
+        self._create_table()
+    def getconnection(self):
+        return sqlite3.connect(self.db_name)
+    def _create_table(self):
+        with self.getconnection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                create table student(
+                    student_id integer primary key
+                    age integer
+                    name text not null
+                    gpa real not null
+                )
+            """)
+        conn.commit()
