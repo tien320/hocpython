@@ -1,8 +1,8 @@
-from databaserepository import DatabaseRepository
+from userrepository import UserRepository
 from user import User
 
 class UserApp:
-    def __init__(self, repo : DatabaseRepository):
+    def __init__(self, repo : UserRepository):
         self.repo = repo
     def input_user(self):
         while True:
@@ -70,29 +70,29 @@ class UserApp:
             print("xóa thất bại")
     def run_menu(self):
         while True:
-                print("Quản lí sinh user")
-                print("0.thoát")
-                print("1.hiển thị tất cả")
-                print("2.update dữ liệu")
-                print("3.xóa dữ liệu")
-                print("4.thêm dữ liệu")
-                print("5.tìm theo email")
-                choice = input("chọn yêu cầu: ")
-                if choice == "1":
-                    self.show_all()
-                elif choice == "2":
-                    self.update()
-                elif choice == "3":
-                    self.delete()
-                elif choice == "4":
-                    self.input_user()
-                elif choice == "5":
-                    self.search_by_email()
-                elif choice == "0":
-                    print("đã thoát")
-                    break
-                else:
-                    print("lỗi nhập số")
+            print("Quản lí sinh user")
+            print("0.thoát")
+            print("1.hiển thị tất cả")
+            print("2.update dữ liệu")
+            print("3.xóa dữ liệu")
+            print("4.thêm dữ liệu")
+            print("5.tìm theo email")
+            choice = input("chọn yêu cầu: ")
+            if choice == "1":
+                self.show_all()
+            elif choice == "2":
+                self.update()
+            elif choice == "3":
+                self.delete()
+            elif choice == "4":
+                self.input_user()
+            elif choice == "5":
+                self.search_by_email()
+            elif choice == "0":
+                print("đã thoát")
+                break
+            else:
+                print("lỗi nhập số")
 
 
 

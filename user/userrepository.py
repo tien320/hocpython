@@ -1,7 +1,7 @@
 import sqlite3
 from user import User
 
-class DatabaseRepository:
+class UserRepository:
     def __init__(self, db_name: str = "user.db"):
         self.db_name = db_name
         self.create_table()
