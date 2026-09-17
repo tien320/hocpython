@@ -11,7 +11,7 @@ class Database:
                 if cls._instance is None:
                     cls._instance = super().__new__(cls)
         return cls._instance
-    def __init__(self, user: str = "user",password: str = "123456",dsn: str = "localhost:1521/XEPDB1"):
+    def __init__(self, user: str = "usermanage",password: str = "123456",dsn: str = "localhost:1521/XEPDB1"):
         if not self._initialize:
             with self._lock:
                 if not self._initialize:

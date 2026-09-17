@@ -13,6 +13,7 @@ class UserRepository:
                "phone_number": user.phone_number,
                "email": user.email
             })
+            conn.commit()
             return cursor.rowcount > 0
     def list_all(self):
        with self.db.get_connection() as conn:
@@ -29,7 +30,7 @@ class UserRepository:
              if not row: return None
              col_names = [col[0].lower() for col in cursor.description]
              return self._map_row_to_user(dict(zip(col_names,row)))
-    def update(self,user: User):
+    def update(self,user_id: int,user: User):
        with self.db.get_connection() as conn:
           with conn.cursor() as cursor:
              cursor.execute("update users set name = :name, password = :password, phone_number = :phone_number, email= :email where user_id = :user_id",
@@ -38,13 +39,15 @@ class UserRepository:
                    "password": user.password,
                    "phone_number": user.phone_number,
                    "email": user.email,
-                   "user_id": user.user_id
+                   "user_id": user_id
              })
+             conn.commit()
              return cursor.rowcount > 0
     def delete(self, user_id: int):
        with self.db.get_connection() as conn:
           with conn.cursor() as cursor:
              cursor.execute("delete from users where user_id = :user_id",user_id=user_id)
+             conn.commit()
              return cursor.rowcount > 0
     def _map_row_to_user(self, data: dict):
        return User(
