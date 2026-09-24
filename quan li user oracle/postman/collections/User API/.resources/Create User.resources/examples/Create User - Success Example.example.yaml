@@ -1,0 +1,34 @@
+$kind: http-example
+name: 'Create User - Success Example'
+request:
+  url: 'http://127.0.0.1:8000/user'
+  method: POST
+  headers:
+    - key: Content-Type
+      value: application/json
+  body:
+    type: json
+    content: |-
+      {
+        "user_id": 1,
+        "password": "Pass1234",
+        "name": "Nguyen Van A",
+        "phone_number": "0987654321",
+        "email": "vana@gmail.com"
+      }
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    - key: Content-Type
+      value: application/json
+  body:
+    type: json
+    content: |-
+      {
+        "user_id": 1,
+        "password": "******",
+        "name": "Nguyen Van A",
+        "phone_number": "0987654321",
+        "email": "vana@gmail.com"
+      }

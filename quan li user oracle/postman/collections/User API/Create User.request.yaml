@@ -1,0 +1,18 @@
+$kind: http-request
+method: POST
+url: 'http://127.0.0.1:8000/user'
+order: 1000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "user_id": 1,
+      "password": "Pass1234",
+      "name": "Nguyen Van A",
+      "phone_number": "0987654321",
+      "email": "vana@gmail.com"
+    }
+examples: './.resources/Create User.resources/examples'

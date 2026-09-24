@@ -1,9 +1,9 @@
 from models.user import User
 from core.database import Database
 class UserRepository:
-    def __init__(self, db: Database| None = None):
+   def __init__(self, db: Database| None = None):
         self.db = db if db is not None else Database()
-    def add(self, user: User):
+   def add(self, user: User):
       with self.db.get_connection() as conn:
          with conn.cursor() as cursor:
             cursor.execute("insert into users(user_id,name,password,phone_number,email) values(:user_id, :name, :password, :phone_number, :email)",{
@@ -15,14 +15,14 @@ class UserRepository:
             })
             conn.commit()
             return cursor.rowcount > 0
-    def list_all(self):
+   def list_all(self):
        with self.db.get_connection() as conn:
           with conn.cursor() as cursor:
              cursor.execute("select * from users")
              col_names = [col[0].lower() for col in cursor.description]
              rows = cursor.fetchall()
              return [self._map_row_to_user(dict(zip(col_names,row))) for row in rows]
-    def find_by_id(self,user_id: int):
+   def find_by_id(self,user_id: int):
        with self.db.get_connection() as conn:
           with conn.cursor() as cursor:
              cursor.execute("select * from users where user_id = :id", id = user_id)
@@ -30,7 +30,15 @@ class UserRepository:
              if not row: return None
              col_names = [col[0].lower() for col in cursor.description]
              return self._map_row_to_user(dict(zip(col_names,row)))
-    def update(self,user_id: int,user: User):
+   def find_by_email(self,email: str):
+      with self.db.get_connection() as conn:
+         with conn.cursor() as cursor:
+            cursor.execute("select * from users where email = :email", email = email)
+            row = cursor.fetchone()
+            if not row: return None
+            col_names = [col[0].lower() for col in cursor.description]
+            return self._map_row_to_user(dict(zip(col_names,row)))
+   def update(self,user_id: int,user: User):
        with self.db.get_connection() as conn:
           with conn.cursor() as cursor:
              cursor.execute("update users set name = :name, password = :password, phone_number = :phone_number, email= :email where user_id = :user_id",
@@ -43,13 +51,13 @@ class UserRepository:
              })
              conn.commit()
              return cursor.rowcount > 0
-    def delete(self, user_id: int):
+   def delete(self, user_id: int):
        with self.db.get_connection() as conn:
           with conn.cursor() as cursor:
              cursor.execute("delete from users where user_id = :user_id",user_id=user_id)
              conn.commit()
              return cursor.rowcount > 0
-    def _map_row_to_user(self, data: dict):
+   def _map_row_to_user(self, data: dict):
        return User(
           user_id = data["user_id"],
           password = data["password"],
