@@ -1,0 +1,15 @@
+# Biến môi trường & bí mật (Bắt buộc)
+.env
+.env.*
+!.env.example
+
+# File rác Python / Cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Môi trường ảo (Virtual Environment)
+venv/
+.venv/
+env/

@@ -1,6 +1,8 @@
 import threading
 from contextlib import contextmanager
 import oracledb
+from core.config import settings
+
 class Database:
     _instance = None
     _lock = threading.Lock()
@@ -11,19 +13,16 @@ class Database:
                 if cls._instance is None:
                     cls._instance = super().__new__(cls)
         return cls._instance
-    def __init__(self, user: str = "usermanage",password: str = "123456",dsn: str = "localhost:1521/XEPDB1"):
+    def __init__(self):
         if not self._initialize:
             with self._lock:
                 if not self._initialize:
-                    self.user = user
-                    self.password = password
-                    self.dsn = dsn
                     self.pool = oracledb.create_pool(
-                        user = self.user,
-                        password = self.password,
-                        dsn = self.dsn,
-                        min = 2,
-                        max = 10,
+                        user = settings.DB_USER,
+                        password = settings.DB_PASSWORD,
+                        dsn = settings.DB_DSN,
+                        min = settings.DB_POOL_MIN,
+                        max = settings.DB_POOL_MAX,
                         increment = 1
                     )
                     self._initialize = True
