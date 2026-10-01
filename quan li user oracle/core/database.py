@@ -2,6 +2,7 @@ import threading
 from contextlib import contextmanager
 import oracledb
 from core.config import settings
+from core.logger import logger
 
 class Database:
     _instance = None
@@ -32,8 +33,9 @@ class Database:
         try:
             yield conn
             conn.commit()
-        except Exception:
+        except Exception as e:
             conn.rollback()
+            logger.error(f"lỗi truy vấn: {str(e)}",exc_info= True)
             raise
         finally:
             self.pool.release(conn)

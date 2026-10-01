@@ -1,11 +1,13 @@
 from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
+from core.logger import logger
 
 from models.user import UserCreate, UserResponse, UserRole
 from repositories.userepository import UserRepository
 from core.database import Database
 from security import hash_password, verify_password, create_access_token, decode_access_token
+from core.logger import logger
 
 app = FastAPI()
 user_repo = UserRepository(Database())
@@ -40,21 +42,32 @@ def read_root():
 
 @app.post("/user", response_model=UserResponse)
 def create_user(user_data: UserCreate):
+    existing_user = user_repo.find_by_email(user_data.email)
+    if existing_user:
+        logger.warning("đăng kí thất bại email đã tồn tại")
+        raise HTTPException(
+            status_code= status.HTTP_400_BAD_REQUEST,
+            detail= "email đã đc đăng kí"
+        )
     try:
         user_data.password = hash_password(user_data.password)
         created_user = user_repo.add(user_data)
+        logger.info("đã tạo thành công")
         return created_user
     except Exception as e:
+        logger.error(f"lỗi tạo tài khoản và email: {str(e)}", exc_info= True)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Lỗi tạo tài khoản: {str(e)}")
 
 @app.post("/login")
 def login(payload: LoginRequest):
     user = user_repo.find_by_email(payload.email)
     if not user or not verify_password(payload.password, user.get("password")):
+        logger.warning("đăng nhập thất bại với email")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email hoặc mật khẩu không chính xác"
         )
+    logger.info("đăng nhập thành công")
     
     token = create_access_token(data={
         "sub": str(user["user_id"]),

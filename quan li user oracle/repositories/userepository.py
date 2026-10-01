@@ -1,95 +1,88 @@
-import oracledb
-from models.user import UserCreate, UserResponse, UserRole
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+
+from models.user import UserResponse, UserCreate, UserRole
+from models.user_entity import UserORM
 from core.database import Database
+from core.logger import logger
 
 class UserRepository:
     def __init__(self, db: Database | None = None):
         self.db = db if db is not None else Database()
-
-    def add(self, user: UserCreate, role: UserRole = UserRole.USER) -> UserResponse:
-        query = """
-            INSERT INTO users (name, email, phone_number, password, role)
-            VALUES (:name, :email, :phone_number, :password, :role)
-            RETURNING user_id INTO :out_user_id
-        """
-        with self.db.get_connection() as conn:
-            with conn.cursor() as cursor:
-                out_user_id = cursor.var(oracledb.NUMBER)
-                cursor.execute(query, {
-                    "name": user.name,
-                    "email": user.email,
-                    "phone_number": user.phone_number,
-                    "password": user.password,
-                    "role": role.value,
-                    "out_user_id": out_user_id
-                })
-                new_id = int(out_user_id.getvalue()[0])
-                
-                return UserResponse(
-                    user_id=new_id,
-                    name=user.name,
-                    email=user.email,
-                    phone_number=user.phone_number,
-                    role=role
-                )
-
-    def list_all(self) -> list[UserResponse]:
-        with self.db.get_connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute("SELECT user_id, name, email, phone_number, role FROM users")
-                col_names = [col[0].lower() for col in cursor.description]
-                rows = cursor.fetchall()
-                return [self._map_row_to_response(dict(zip(col_names, row))) for row in rows]
-
-    def find_by_id(self, user_id: int) -> UserResponse | None:
-        with self.db.get_connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute("SELECT user_id, name, email, phone_number, role FROM users WHERE user_id = :id", [user_id])
-                row = cursor.fetchone()
-                if not row:
-                    return None
-                col_names = [col[0].lower() for col in cursor.description]
-                return self._map_row_to_response(dict(zip(col_names, row)))
-
-    def find_by_email(self, email: str) -> dict | None:
-        with self.db.get_connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute("SELECT user_id, name, email, phone_number, password, role FROM users WHERE email = :email", [email])
-                row = cursor.fetchone()
-                if not row:
-                    return None
-                col_names = [col[0].lower() for col in cursor.description]
-                return dict(zip(col_names, row))
-
-    def update(self, user_id: int, user: UserCreate, role: str = "user") -> bool:
-        query = """
-            UPDATE users 
-            SET name = :name, email = :email, phone_number = :phone_number, password = :password, role = :role 
-            WHERE user_id = :user_id
-        """
-        with self.db.get_connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute(query, {
-                    "name": user.name,
-                    "email": user.email,
-                    "phone_number": user.phone_number,
-                    "password": user.password,
-                    "role": role,
-                    "user_id": user_id
-                })
-                return cursor.rowcount > 0
-
-    def delete(self, user_id: int) -> bool:
-        with self.db.get_connection() as conn:
-            with conn.cursor() as cursor:
-                cursor.execute("DELETE FROM users WHERE user_id = :user_id", [user_id])
-                return cursor.rowcount > 0
-
-    def _map_row_to_response(self, data: dict) -> UserResponse:
+    def map_to_response(self, entity: UserORM):
         return UserResponse(
-            user_id=data["user_id"],
-            name=data["name"],
-            email=data["email"],
-            phone_number=data["phone_number"],
-            role=UserRole(data.get("role", "user"))
+            user_id= entity.user_id,
+            name = entity.name,
+            email = entity.email,
+            phone_number= entity.phone_number,
+            role= entity.role
         )
+    def add(self, user: UserCreate, role: UserRole = UserRole.USER):
+        user_entity = UserORM(
+            name = user.name,
+            email = user.email,
+            phone_number = user.phone_number,
+            password = user.password,
+            role = role.value
+        )
+        try:
+            with self.db.get_connection() as conn:
+                with Session(bind= conn) as session:
+                    session.add(user_entity)
+                    session.flush()
+                    session.refresh(user_entity)
+                    return self.map_to_response(user_entity)
+        except IntegrityError as e:
+            if "ORA-00001" in str(e.orig):
+                logger.warning("trùng email")
+                raise ValueError("email đã được sử dụng")
+            logger.error(f"lỗi ràng buộc: {str(e)}", exc_info= True)
+            raise
+    def list_all(self):
+        with self.db.get_connection() as conn:
+            with Session(bind= conn) as session:
+                stmt = select(UserORM)
+                users = session.scalars(stmt).all()
+                return [self.map_to_response(u) for u in users]
+    def find_by_id(self, user_id: int):
+        with self.db.get_connection() as conn:
+            with Session(bind= conn) as session:
+                user = session.get(UserORM, user_id)
+                return self.map_to_response(user) if user else None
+    def find_by_email(self,email: str):
+        with self.db.get_connection() as conn:
+            with Session(bind= conn) as session:
+                stmt = select(UserORM).where(UserORM.email == email)
+                user = session.scalars(stmt).first()
+                if not user:
+                    return None
+                return{
+                    "user_id": user.user_id,
+                    "name": user.name,
+                    "phone_number": user.phone_number,
+                    "password": user.password,
+                    "role": user.role,
+                }# đưa về dạng dict
+    def update(self, user_id: int, user: UserResponse, role: str = "user"):
+        with self.db.get_connection() as conn:
+            with Session(bind=conn) as session:
+                existing_user = session.get(UserORM, user_id)
+                if not existing_user:
+                    return False
+                existing_user.name = user.name
+                existing_user.email = user.email
+                existing_user.phone_number = user.phone_number
+                existing_user.password = user.password
+                existing_user.role = user.role
+                session.flush()
+                return True
+    def delete(self, user_id: int):
+        with self.db.get_connection() as conn:
+            with Session(bind= conn) as session:
+                user = session.get(UserORM, user_id)
+                if not user:
+                    return False
+                session.delete(user)
+                session.flush()
+                return True
