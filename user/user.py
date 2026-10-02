@@ -6,5 +6,3 @@ class User:
         self.role = role
     def __str__(self):
         return f"ID: {self.user_id}, Tên: {self.name}, Email: {self.email}, Chức vụ: {self.role}"
-    
-        
