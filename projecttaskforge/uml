@@ -1,0 +1,124 @@
+@startuml
+autonumber
+skinparam style strictuml
+skinparam sequenceMessageAlign center
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Tester (Postman)" as Postman
+
+box "API Layer" #EBF5FB
+    participant "FastAPI Router\n(auth / workspaces)" as Router
+    participant "Auth Dependency\n(deps.get_current_user)" as Deps
+end box
+
+box "Business / Service Layer" #E8F8F5
+    participant "WorkspaceService" as Service
+end box
+
+box "Data Access Layer (Repository)" #FEF9E7
+    participant "WorkspaceMemberRepository" as Repo
+end box
+
+box "Infrastructure" #FDEDEC
+    participant "Oracle Database" as DB
+    participant "Logger\n(core.logger)" as Logger
+end box
+
+== Kịch bản 1: Đăng nhập lấy Token (POST /api/v1/auth/login) ==
+
+Postman -> Router: POST /api/v1/auth/login\n(Body: username=email, password)
+activate Router
+
+Router -> Repo: UserRepo.get_by_email(email)
+activate Repo
+Repo -> DB: SELECT * FROM users WHERE email = ?
+activate DB
+DB --> Repo: User record / None
+deactivate DB
+Repo --> Router: User entity
+deactivate Repo
+
+alt Sai email hoặc mật khẩu
+    Router --> Postman: 401 Unauthorized\n{"detail": "Email hoặc mật khẩu không chính xác"}
+else Đăng nhập thành công
+    Router -> Router: verify_password() & create_access_token()
+    Router --> Postman: 200 OK\n{"access_token": "jwt_token...", "token_type": "bearer"}
+end
+deactivate Router
+
+== Kịch bản 2: Gọi API cần phân quyền (DELETE /api/v1/workspaces/{ws_id}/members/{user_id}) ==
+
+Postman -> Router: DELETE /workspaces/{ws_id}/members/{user_id}\n[Header: Authorization: Bearer <jwt_token>]
+activate Router
+
+' --- Xác thực JWT ---
+Router -> Deps: get_current_user(token)
+activate Deps
+Deps -> Deps: decode_access_token(token)
+
+alt Token không hợp lệ / Hết hạn
+    Deps --> Postman: 401 Unauthorized\n{"detail": "Thông tin xác thực không hợp lệ"}
+end
+
+Deps -> DB: SELECT * FROM users WHERE id = sub_id
+activate DB
+DB --> Deps: current_user (Actor)
+deactivate DB
+Deps --> Router: Trả về current_user
+deactivate Deps
+
+' --- Xử lý nghiệp vụ & Phân quyền ---
+Router -> Service: remove_member_from_workspace(ws_id, target_user_id, actor_id)
+activate Service
+
+Service -> Repo: get_member(ws_id, actor_id)
+activate Repo
+Repo -> DB: SELECT * FROM workspace_members\nWHERE workspace_id=? AND user_id=actor_id
+activate DB
+DB --> Repo: actor_membership
+deactivate DB
+Repo --> Service: actor_membership
+deactivate Repo
+
+alt Actor không phải OWNER hoặc ADMIN
+    Service --> Router: raise HTTPException(403 Forbidden)
+    Router --> Postman: 403 Forbidden\n{"detail": "Chỉ OWNER hoặc ADMIN mới được thực hiện"}
+end
+
+Service -> Repo: get_member(ws_id, target_user_id)
+activate Repo
+Repo -> DB: SELECT * FROM workspace_members\nWHERE workspace_id=? AND user_id=target_id
+activate DB
+DB --> Repo: target_membership
+deactivate DB
+Repo --> Service: target_membership
+deactivate Repo
+
+alt Target là OWNER hoặc Target là ADMIN (mà Actor không phải OWNER)
+    Service --> Router: raise HTTPException(400/403)
+    Router --> Postman: 400 Bad Request / 403 Forbidden\n{"detail": "Không thể xóa OWNER / Quyền không đủ"}
+end
+
+' --- Thực thi xóa và Ghi log ---
+Service -> Repo: remove_member(ws_id, target_user_id)
+activate Repo
+Repo -> DB: DELETE FROM workspace_members\nWHERE workspace_id=? AND user_id=?
+activate DB
+DB --> Repo: commit & return rowcount
+deactivate DB
+Repo --> Service: True
+deactivate Repo
+
+Service -> Logger: logger.info("Actor đã xóa Target khỏi Workspace")
+activate Logger
+Logger --> Service: ok
+deactivate Logger
+
+Service --> Router: Xóa thành công
+deactivate Service
+
+Router --> Postman: 204 No Content
+deactivate Router
+
+@enduml
