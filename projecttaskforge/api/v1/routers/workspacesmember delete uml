@@ -1,0 +1,72 @@
+@startuml
+autonumber
+skinparam style strictuml
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Client" as Client
+participant "Router\n(remove_workspace_member)" as Router
+participant "WorkspaceService\n(service)" as Service
+participant "WorkspaceMemberRepository\n(member_repo)" as MemberRepo
+database "Database" as DB
+
+Client -> Router: DELETE /{workspace_id}/members/{user_id}\n(workspace_id, user_id, current_user)
+activate Router
+
+' 1. Ủy quyền xử lý cho Service
+Router -> Service: remove_member_from_workspace(\n  workspace_id,\n  target_user_id=user_id,\n  actor_user_id=current_user.id\n)
+activate Service
+
+' 2. Lấy thông tin vai trò của người thực hiện (actor)
+Service -> MemberRepo: get_member(workspace_id, actor_user_id)
+activate MemberRepo
+MemberRepo -> DB: SELECT * FROM workspace_members\nWHERE workspace_id = :ws_id AND user_id = :actor_id
+activate DB
+DB --> MemberRepo: actor_member / null
+deactivate DB
+MemberRepo --> Service: actor_member
+deactivate MemberRepo
+
+' 3. Lấy thông tin vai trò của người bị xóa (target)
+Service -> MemberRepo: get_member(workspace_id, target_user_id)
+activate MemberRepo
+MemberRepo -> DB: SELECT * FROM workspace_members\nWHERE workspace_id = :ws_id AND user_id = :target_id
+activate DB
+DB --> MemberRepo: target_member / null
+deactivate DB
+MemberRepo --> Service: target_member
+deactivate MemberRepo
+
+' 4. Kiểm tra các điều kiện nghiệp vụ
+alt Người thực hiện hoặc người bị xóa không tồn tại trong Workspace
+    Service --> Router: raise HTTPException(404 Not Found)
+    Router --> Client: HTTP 404 Not Found\n{"detail": "Thành viên không tồn tại trong workspace"}
+
+else Xóa người sở hữu (target_member.role == OWNER)
+    Service --> Router: raise HTTPException(400 Bad Request / 403 Forbidden)
+    Router --> Client: HTTP 400 Bad Request\n{"detail": "Không thể xóa Owner khỏi workspace"}
+
+else Vi phạm quyền hạn (actor là ADMIN nhưng target là ADMIN hoặc OWNER)
+    Service --> Router: raise HTTPException(403 Forbidden)
+    Router --> Client: HTTP 403 Forbidden\n{"detail": "Admin không có quyền xóa Admin khác hoặc Owner"}
+
+else Hợp lệ (Được phép xóa)
+    ' 5. Thực hiện xóa bản ghi
+    Service -> MemberRepo: delete_member(workspace_id, target_user_id)
+    activate MemberRepo
+    MemberRepo -> DB: DELETE FROM workspace_members\nWHERE workspace_id = :ws_id AND user_id = :target_id
+    activate DB
+    DB --> MemberRepo: success
+    deactivate DB
+    MemberRepo --> Service: success
+    deactivate MemberRepo
+
+    Service --> Router: return None (hoàn tất)
+    deactivate Service
+
+    ' 6. Trả phản hồi thành công không có nội dung
+    Router --> Client: HTTP 204 No Content
+end
+
+deactivate Router
+@enduml

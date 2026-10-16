@@ -1,0 +1,54 @@
+@startuml
+autonumber
+skinparam style strictuml
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Client" as Client
+participant "Router\n(update_workspace)" as Router
+participant "WorkspaceService\n(service)" as Service
+participant "WorkspaceMemberRepository\n(member_repo)" as MemberRepo
+participant "WorkspaceRepositories\n(ws_repo)" as WsRepo
+database "Database" as DB
+
+Client -> Router: PUT /{workspace_id}\n(workspace_id, data: WorkspaceUpdate, current_user)
+activate Router
+
+' 1. Khởi tạo & Kiểm tra quyền qua Service
+Router -> Service: ensure_is_admin_or_owner(workspace_id, current_user.id)
+activate Service
+
+Service -> MemberRepo: get_member(workspace_id, current_user.id)
+activate MemberRepo
+MemberRepo -> DB: SELECT * FROM workspace_members\nWHERE workspace_id = :ws_id AND user_id = :user_id
+activate DB
+DB --> MemberRepo: member record / null
+deactivate DB
+MemberRepo --> Service: member
+deactivate MemberRepo
+
+alt Không có quyền (member is None HOẶC role not in [ADMIN, OWNER])
+    Service --> Router: raise HTTPException(403 Forbidden)
+    Router --> Client: HTTP 403 Forbidden\n{"detail": "Không có quyền chỉnh sửa workspace"}
+else Có quyền hợp lệ (role in [ADMIN, OWNER])
+    Service --> Router: return None (hợp lệ)
+    deactivate Service
+
+    ' 2. Chuẩn bị dữ liệu và cập nhật
+    Router -> Router: data.model_dump(exclude_unset=True)
+
+    Router -> WsRepo: update(workspace_id, **update_data)
+    activate WsRepo
+    WsRepo -> DB: UPDATE workspaces\nSET ... WHERE id = :workspace_id
+    activate DB
+    DB --> WsRepo: updated workspace record
+    deactivate DB
+    WsRepo --> Router: updated_ws
+    deactivate WsRepo
+
+    ' 3. Trả về kết quả
+    Router --> Client: HTTP 200 OK\n(WorkspaceResponse)
+end
+
+deactivate Router
+@enduml

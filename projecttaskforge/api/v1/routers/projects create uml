@@ -1,0 +1,59 @@
+@startuml
+autonumber
+skinparam responseMessageBelowArrow true
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Client" as Client
+participant "FastAPI Router\n(create_project)" as Router
+participant "WorkspaceMemberRepository" as MemberRepo
+participant "ProjectRepository" as ProjectRepo
+database "Database\n(AsyncSession)" as DB
+
+Client -> Router: POST /workspaces/{workspace_id}/projects\n(Bearer Token, ProjectCreate JSON)
+activate Router
+
+' 1. Check workspace membership & role
+Router -> MemberRepo: get_member(workspace_id, current_user.id)
+activate MemberRepo
+MemberRepo -> DB: SELECT * FROM workspace_members\nWHERE workspace_id = ... AND user_id = ...
+activate DB
+DB --> MemberRepo: member record / null
+deactivate DB
+MemberRepo --> Router: member
+deactivate MemberRepo
+
+alt member is None
+    Router --> Client: 403 Forbidden\n("Bạn không thuộc workspace này")
+else member.role not in [OWNER, ADMIN]
+    Router --> Client: 403 Forbidden\n("Chỉ quản trị viên mới có quyền tạo dự án")
+else Quyền hợp lệ (OWNER / ADMIN)
+    ' 2. Chuẩn hóa & tạo project
+    Router -> Router: clean_key = data.key.strip().upper()
+    
+    Router -> ProjectRepo: create(workspace_id, name, key, ...)
+    activate ProjectRepo
+    ProjectRepo -> DB: INSERT INTO projects (...)
+    activate DB
+    DB --> ProjectRepo: project instance
+    deactivate DB
+    ProjectRepo --> Router: new_project
+    deactivate ProjectRepo
+
+    ' 3. Commit và Exception handling
+    Router -> DB: session.commit()
+    activate DB
+
+    alt Vi phạm Unique Key (IntegrityError)
+        DB --> Router: Raise IntegrityError
+        Router -> DB: session.rollback()
+        Router --> Client: 409 Conflict\n("Mã Key dự án đã tồn tại trong workspace này")
+    else Thành công
+        DB --> Router: Commit thành công
+        deactivate DB
+        Router --> Client: 201 Created\n(ProjectResponse)
+    end
+end
+
+deactivate Router
+@enduml

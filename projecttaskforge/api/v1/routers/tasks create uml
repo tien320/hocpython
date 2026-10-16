@@ -1,0 +1,90 @@
+@startuml
+autonumber
+skinparam style strictuml
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Client / User" as Client
+box "FastAPI Layer" #AliceBlue
+    participant "Router / Endpoint\n(create_task)" as Endpoint
+    participant "Auth / Dependencies\n(get_current_user, get_db)" as Deps
+end box
+
+box "Repository Layer" #GhostWhite
+    participant "ProjectRepository" as ProjectRepo
+    participant "WorkspaceMemberRepository" as MemberRepo
+    participant "TaskRepository" as TaskRepo
+end box
+
+database "Database\n(AsyncSession)" as DB
+
+== Khởi tạo & Tiêm phụ thuộc ==
+Client -> Endpoint: POST /projects/{project_id}/tasks\n(data: TaskCreate, Bearer Token)
+activate Endpoint
+
+Endpoint -> Deps: Xác thực user & tạo AsyncSession
+activate Deps
+Deps --> Endpoint: current_user, session
+deactivate Deps
+
+== 1. Tìm thông tin dự án ==
+Endpoint -> ProjectRepo: get_by_id(project_id)
+activate ProjectRepo
+ProjectRepo -> DB: SELECT project WHERE id = project_id
+DB --> ProjectRepo: project data / null
+ProjectRepo --> Endpoint: project
+deactivate ProjectRepo
+
+alt #MistyRose Project không tồn tại
+    Endpoint --> Client: 404 Not Found ("Không tìm thấy dự án")
+end
+
+== 2. Kiểm tra quyền người tạo trong Workspace ==
+Endpoint -> MemberRepo: get_member(project.workspace_id, current_user.id)
+activate MemberRepo
+MemberRepo -> DB: SELECT member WHERE workspace_id AND user_id
+DB --> MemberRepo: member data / null
+MemberRepo --> Endpoint: current_member
+deactivate MemberRepo
+
+alt #MistyRose User không thuộc Workspace
+    Endpoint --> Client: 404 Not Found ("Không tìm thấy dự án" - ẩn thông tin)
+end
+
+== 3 & 4. Kiểm tra Assignee (nếu có) ==
+opt Có cung cấp assignee_id
+    Endpoint -> MemberRepo: get_member(project.workspace_id, assignee_id)
+    activate MemberRepo
+    MemberRepo -> DB: SELECT member WHERE workspace_id AND user_id = assignee_id
+    DB --> MemberRepo: assignee data / null
+    MemberRepo --> Endpoint: assignee_member
+    deactivate MemberRepo
+
+    alt #MistyRose Assignee không thuộc Workspace
+        Endpoint --> Client: 400 Bad Request ("Người được giao việc không thuộc workspace này")
+    end
+end
+
+== 5. Tạo Task & Quản lý Transaction ==
+Endpoint -> TaskRepo: create(project_id, creator_id, **task_data)
+activate TaskRepo
+TaskRepo -> DB: INSERT INTO tasks (...)
+deactivate TaskRepo
+
+alt #Honeydew Ghi dữ liệu thành công
+    Endpoint -> DB: commit()
+    activate DB
+    DB --> Endpoint: OK
+    deactivate DB
+    Endpoint --> Client: 201 Created (TaskResponse)
+
+else #MistyRose Lỗi ràng buộc (IntegrityError)
+    Endpoint -> DB: rollback()
+    activate DB
+    DB --> Endpoint: OK
+    deactivate DB
+    Endpoint --> Client: 400 Bad Request ("Dữ liệu tạo công việc không hợp lệ...")
+end
+
+deactivate Endpoint
+@enduml

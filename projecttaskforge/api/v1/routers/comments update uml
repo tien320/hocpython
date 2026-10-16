@@ -1,0 +1,97 @@
+@startuml
+autonumber
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Client" as Client
+box "FastAPI App" #GhostWhite
+    participant "FastAPI Dependency\nEngine" as Dep
+    participant "Route Handler\nupdate_comment" as Handler
+    participant "CommentRepository" as CommentRepo
+    participant "TaskRepository" as TaskRepo
+    participant "check_project_access" as AuthFunc
+end box
+database "Database (AsyncSession)" as DB
+
+Client -> Dep : PATCH /comments/{comment_id}\n(Bearer Token, JSON Payload)
+activate Dep
+
+' 1. Dependency Resolution
+Dep -> Dep : get_current_user()\n(Authenticate & resolve current_user)
+Dep -> Dep : get_db()\n(Provide AsyncSession)
+
+Dep -> Handler : update_comment(comment_id, data, current_user, session)
+activate Handler
+deactivate Dep
+
+' 2. Tìm comment
+Handler -> CommentRepo ** : new(session)
+Handler -> CommentRepo : get_by_id(comment_id)
+activate CommentRepo
+
+CommentRepo -> DB : SELECT * FROM comments WHERE id = comment_id
+activate DB
+DB --> CommentRepo : comment / None
+deactivate DB
+
+CommentRepo --> Handler : comment
+deactivate CommentRepo
+
+alt comment is None
+    Handler --> Client : 404 NOT FOUND\n{"detail": "Không tìm thấy bình luận"}
+else comment exists
+
+    ' 3. Kiểm tra chính chủ
+    alt comment.user_id != current_user.id
+        Handler --> Client : 403 FORBIDDEN\n{"detail": "Chỉ tác giả mới được sửa bình luận này"}
+    else comment.user_id == current_user.id
+
+        ' 4. Tìm Task tương ứng
+        Handler -> TaskRepo ** : new(session)
+        Handler -> TaskRepo : get_by_id(comment.task_id)
+        activate TaskRepo
+
+        TaskRepo -> DB : SELECT * FROM tasks WHERE id = comment.task_id
+        activate DB
+        DB --> TaskRepo : task / None
+        deactivate DB
+
+        TaskRepo --> Handler : task
+        deactivate TaskRepo
+
+        alt task is None
+            Handler --> Client : 404 NOT FOUND\n{"detail": "Task không còn tồn tại"}
+        else task exists
+
+            ' 5. Kiểm tra quyền truy cập project
+            Handler -> AuthFunc : check_project_access(task.project_id, current_user.id, session)
+            activate AuthFunc
+            AuthFunc --> Handler : has_access (bool)
+            deactivate AuthFunc
+
+            alt has_access is False
+                Handler --> Client : 403 FORBIDDEN\n{"detail": "Bạn không còn quyền trong dự án này"}
+            else has_access is True
+
+                ' 6. Cập nhật comment
+                Handler -> CommentRepo : update(comment_id, content=data.content.strip())
+                activate CommentRepo
+
+                CommentRepo -> DB : UPDATE comments SET content = ...\nWHERE id = comment_id
+                activate DB
+                DB --> CommentRepo : updated record
+                deactivate DB
+
+                CommentRepo --> Handler : updated
+                deactivate CommentRepo
+
+                ' 7. Gán relation in-memory & trả về kết quả
+                Handler -> Handler : updated.user = current_user
+                Handler --> Client : 200 OK\n(CommentResponse JSON)
+            end
+        end
+    end
+end
+
+deactivate Handler
+@enduml

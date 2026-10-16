@@ -1,0 +1,92 @@
+@startuml
+autonumber
+skinparam responseMessageBelowArrow true
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Client" as Client
+participant "FastAPI Router\n(update_project)" as Router
+participant "ProjectRepository" as ProjectRepo
+participant "WorkspaceMemberRepository" as MemberRepo
+database "Database\n(AsyncSession)" as DB
+
+Client -> Router: PATCH /projects/{project_id}\n(Bearer Token, ProjectUpdate JSON)
+activate Router
+
+' 1. Tìm project
+Router -> ProjectRepo: get_by_id(project_id)
+activate ProjectRepo
+ProjectRepo -> DB: SELECT * FROM projects WHERE id = project_id
+activate DB
+DB --> ProjectRepo: project / null
+deactivate DB
+ProjectRepo --> Router: project
+deactivate ProjectRepo
+
+alt project is None
+    Router --> Client: 404 Not Found\n("Không tìm thấy dự án")
+end
+
+' 2. Kiểm tra thành viên workspace
+Router -> MemberRepo: get_member(project.workspace_id, current_user.id)
+activate MemberRepo
+MemberRepo -> DB: SELECT * FROM workspace_members\nWHERE workspace_id = ... AND user_id = ...
+activate DB
+DB --> MemberRepo: member / null
+deactivate DB
+MemberRepo --> Router: member
+deactivate MemberRepo
+
+alt member is None
+    Router --> Client: 404 Not Found\n("Không tìm thấy dự án" - tránh lộ ID)
+end
+
+' 3. Kiểm tra quyền
+note over Router
+  is_creator = (project.created_by_id == current_user.id)
+  is_admin_or_owner = member.role in [OWNER, ADMIN]
+end note
+
+alt not (is_creator or is_admin_or_owner)
+    Router --> Client: 403 Forbidden\n("Bạn không có quyền chỉnh sửa dự án này")
+end
+
+' 4. Dump dữ liệu & Kiểm tra rỗng
+note over Router
+  update_data = data.model_dump(exclude_unset=True)
+end note
+
+alt not update_data
+    Router --> Client: 200 OK\n(project hiện tại - không query DB)
+end
+
+' 5. Chuẩn hóa Key & Update
+opt "key" in update_data and update_data["key"]
+    note over Router: update_data["key"] = update_data["key"].strip().upper()
+end
+
+Router -> ProjectRepo: update(project_id, **update_data)
+activate ProjectRepo
+ProjectRepo -> DB: UPDATE projects SET ... WHERE id = project_id
+activate DB
+DB --> ProjectRepo: updated_project
+deactivate DB
+ProjectRepo --> Router: updated_project
+deactivate ProjectRepo
+
+' 6. Commit và bắt lỗi IntegrityError
+Router -> DB: session.commit()
+activate DB
+
+alt Vi phạm ràng buộc Unique (IntegrityError)
+    DB --> Router: Raise IntegrityError
+    Router -> DB: session.rollback()
+    Router --> Client: 409 Conflict\n("Mã Key dự án đã tồn tại trong workspace này")
+else Thành công
+    DB --> Router: Commit thành công
+    deactivate DB
+    Router --> Client: 200 OK\n(ProjectResponse)
+end
+
+deactivate Router
+@enduml

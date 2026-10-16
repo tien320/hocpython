@@ -1,6 +1,8 @@
 import uuid
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+from typing import Optional, List
 
 from models.entities import User, Workspace, WorkspaceMember, Project, Task, Comment
 from models.enums import WorkspaceRole
@@ -23,23 +25,65 @@ class WorkspaceRepositories(BaseRepository[Workspace]):
 class WorkspaceMemberRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
-    async def add_member(self, workspace_id: uuid.UUID, user_id: uuid.UUID, role: WorkspaceRole):
-        member = WorkspaceMember(workspace_id = workspace_id, user_id = user_id,role = role)
+
+    async def add_member(
+        self, 
+        workspace_id: uuid.UUID, 
+        user_id: uuid.UUID, 
+        role: WorkspaceRole
+    ) -> WorkspaceMember:
+        member = WorkspaceMember(workspace_id=workspace_id, user_id=user_id, role=role)
         self.session.add(member)
-        await self.session.commit()
+        await self.session.flush()
         await self.session.refresh(member)
         return member
-    async def get_member(self,workspace_id: uuid.UUID, user_id: uuid.UUID):
-        return await self.session.get(WorkspaceMember, (workspace_id,user_id))
-    async def list_by_workspace(self, workspace_id: uuid.UUID):
-        stmt = select(WorkspaceMember).where(WorkspaceMember.workspace_id == workspace_id)
+
+    async def get_member(
+        self, 
+        workspace_id: uuid.UUID, 
+        user_id: uuid.UUID
+    ) -> Optional[WorkspaceMember]:
+        # Tận dụng session.get() với composite PK (workspace_id, user_id)
+        return await self.session.get(WorkspaceMember, (workspace_id, user_id))
+
+    async def list_by_workspace(
+        self, 
+        workspace_id: uuid.UUID
+    ) -> List[WorkspaceMember]:
+        stmt = (
+            select(WorkspaceMember)
+            .where(WorkspaceMember.workspace_id == workspace_id)
+            # Eager load thông tin user để serializer có name, email, avatar
+            .options(selectinload(WorkspaceMember.user))
+        )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
-    async def remove_member(self, workspace_id: uuid.UUID, user_id:uuid.UUID):
-        stmt = delete(WorkspaceMember).where(WorkspaceMember.workspace_id == workspace_id, WorkspaceMember.user_id == user_id)
+
+    async def remove_member(
+        self, 
+        workspace_id: uuid.UUID, 
+        user_id: uuid.UUID
+    ) -> bool:
+        stmt = delete(WorkspaceMember).where(
+            WorkspaceMember.workspace_id == workspace_id, 
+            WorkspaceMember.user_id == user_id
+        )
         result = await self.session.execute(stmt)
-        await self.session.commit()
+        # Sử dụng flush() thay vì commit() để giữ tính nhất quán transaction với router
+        await self.session.flush()
         return result.rowcount > 0
+
+    async def is_admin(
+        self, 
+        workspace_id: uuid.UUID, 
+        user_id: uuid.UUID
+    ) -> bool:
+        """Kiểm tra xem user có phải là ADMIN/OWNER của workspace không (dùng cho router delete comment)."""
+        member = await self.get_member(workspace_id, user_id)
+        if not member:
+            return False
+        # Điều chỉnh tên role tùy theo enum WorkspaceRole của bạn (ADMIN, OWNER,...)
+        return member.role in [WorkspaceRole.ADMIN, WorkspaceRole.OWNER]
 class ProjectRepository(BaseRepository[Project]):
     def __init__(self, session: AsyncSession):
         super().__init__(Project, session)
@@ -51,13 +95,14 @@ class ProjectRepository(BaseRepository[Project]):
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
+    
 
 
 class TaskRepository(BaseRepository[Task]):
     def __init__(self, session: AsyncSession):
         super().__init__(Task, session)
 
-    async def get_tasks_by_project(self, project_id: uuid.UUID):
+    async def get_tasks_by_project(self, project_id: uuid.UUID) -> List[Task]:
         stmt = select(Task).where(Task.project_id == project_id)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
@@ -67,7 +112,25 @@ class CommentRepository(BaseRepository[Comment]):
     def __init__(self, session: AsyncSession):
         super().__init__(Comment, session)
 
-    async def get_comments_by_task(self, task_id: uuid.UUID):
-        stmt = select(Comment).where(Comment.task_id == task_id)
+    async def get_comments_by_task(self, task_id: uuid.UUID) -> List[Comment]:
+        stmt = (
+            select(Comment)
+            .where(Comment.task_id == task_id)
+            # Eager load thông tin tác giả để tránh lỗi lazy load trong async
+            # Đổi "user" thành tên relationship thực tế trong model Comment (vd: user hoặc author)
+            .options(selectinload(Comment.user))
+            # Sắp xếp bình luận cũ nhất lên trước (dòng thời gian thảo luận)
+            .order_by(Comment.created_at.asc())
+        )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def get_by_id_with_relations(self, comment_id: uuid.UUID) -> Optional[Comment]:
+        """Load comment kèm user và task để kiểm tra quyền hạn tiện hơn."""
+        stmt = (
+            select(Comment)
+            .where(Comment.id == comment_id)
+            .options(selectinload(Comment.user))
+        )
+        result = await self.session.execute(stmt)
+        return result.scalars().first()

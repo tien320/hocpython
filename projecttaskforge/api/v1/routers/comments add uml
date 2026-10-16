@@ -1,0 +1,72 @@
+@startuml
+autonumber
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Client" as Client
+box "FastAPI App" #GhostWhite
+    participant "FastAPI Dependency\nEngine" as Dep
+    participant "Route Handler\nadd_comment" as Handler
+    participant "TaskRepository" as TaskRepo
+    participant "check_project_access" as AuthFunc
+    participant "CommentRepository" as CommentRepo
+end box
+database "Database (AsyncSession)" as DB
+
+Client -> Dep : POST /tasks/{task_id}/comments\n(Bearer Token, JSON Payload)
+activate Dep
+
+' Xử lý Dependencies
+Dep -> Dep : get_current_user()\n(Auth & resolve current_user)
+Dep -> Dep : get_db()\n(Provide AsyncSession)
+
+Dep -> Handler : add_comment(task_id, data, current_user, session)
+activate Handler
+deactivate Dep
+
+' 1. Kiểm tra Task tồn tại
+Handler -> TaskRepo ** : new(session)
+Handler -> TaskRepo : get_by_id(task_id)
+activate TaskRepo
+
+TaskRepo -> DB : SELECT * FROM tasks WHERE id = task_id
+activate DB
+DB --> TaskRepo : task / None
+deactivate DB
+
+TaskRepo --> Handler : task
+deactivate TaskRepo
+
+alt task is None
+    Handler --> Client : 404 NOT FOUND\n{"detail": "Không tìm thấy task"}
+else task exists
+    ' 2. Kiểm tra quyền truy cập Project
+    Handler -> AuthFunc : check_project_access(task.project_id, current_user.id, session)
+    activate AuthFunc
+    AuthFunc --> Handler : has_access (bool)
+    deactivate AuthFunc
+
+    alt has_access is False
+        Handler --> Client : 403 FORBIDDEN\n{"detail": "Bạn không có quyền truy cập task này"}
+    else has_access is True
+        ' 3. Tạo mới Comment
+        Handler -> CommentRepo ** : new(session)
+        Handler -> CommentRepo : create(task_id, user_id=current_user.id, content=...)
+        activate CommentRepo
+
+        CommentRepo -> DB : INSERT INTO comments (...) VALUES (...)
+        activate DB
+        DB --> CommentRepo : new_comment record
+        deactivate DB
+
+        CommentRepo --> Handler : new_comment
+        deactivate CommentRepo
+
+        ' 4. Gán relation và phản hồi
+        Handler -> Handler : new_comment.user = current_user
+        Handler --> Client : 201 CREATED\n(CommentResponse JSON)
+    end
+end
+
+deactivate Handler
+@enduml

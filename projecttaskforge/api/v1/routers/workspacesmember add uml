@@ -1,0 +1,64 @@
+@startuml
+autonumber
+skinparam style strictuml
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Client" as Client
+participant "Router\n(add_workspace_member)" as Router
+participant "WorkspaceService\n(service)" as Service
+participant "WorkspaceMemberRepository\n(member_repo)" as MemberRepo
+database "Database" as DB
+
+Client -> Router: POST /{workspace_id}/members\n(workspace_id, data: WorkspaceMemberAdd, current_user)
+activate Router
+
+' 1. Kiểm tra quyền của người gọi (Actor)
+Router -> Service: ensure_is_admin_or_owner(workspace_id, current_user.id)
+activate Service
+
+Service -> MemberRepo: get_member(workspace_id, current_user.id)
+activate MemberRepo
+MemberRepo -> DB: SELECT * FROM workspace_members\nWHERE workspace_id = :ws_id AND user_id = :actor_id
+activate DB
+DB --> MemberRepo: actor_member / null
+deactivate DB
+MemberRepo --> Service: actor_member
+deactivate MemberRepo
+
+alt Người gọi không phải ADMIN hoặc OWNER
+    Service --> Router: raise HTTPException(403 Forbidden)
+    Router --> Client: HTTP 403 Forbidden\n{"detail": "Không có quyền thực hiện hành động này"}
+else Có quyền hợp lệ (role in [ADMIN, OWNER])
+    Service --> Router: return None (hợp lệ)
+    deactivate Service
+
+    ' 2. Kiểm tra thành viên mục tiêu đã tồn tại chưa
+    Router -> MemberRepo: get_member(workspace_id, data.user_id)
+    activate MemberRepo
+    MemberRepo -> DB: SELECT * FROM workspace_members\nWHERE workspace_id = :ws_id AND user_id = :target_id
+    activate DB
+    DB --> MemberRepo: existing member / null
+    deactivate DB
+    MemberRepo --> Router: existing
+    deactivate MemberRepo
+
+    alt Thành viên đã tồn tại (existing is not None)
+        Router --> Client: HTTP 400 Bad Request\n{"detail": "Người dùng đã là thành viên"}
+    else Chưa tồn tại (existing is None)
+        ' 3. Thêm thành viên mới
+        Router -> MemberRepo: add_member(workspace_id, data.user_id, data.role)
+        activate MemberRepo
+        MemberRepo -> DB: INSERT INTO workspace_members\n(workspace_id, user_id, role) VALUES (...)
+        activate DB
+        DB --> MemberRepo: new_member record
+        deactivate DB
+        MemberRepo --> Router: new_member
+        deactivate MemberRepo
+
+        Router --> Client: HTTP 201 Created\n(WorkspaceMemberResponse)
+    end
+end
+
+deactivate Router
+@enduml

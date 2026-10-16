@@ -1,0 +1,47 @@
+@startuml
+autonumber
+skinparam responseMessageBelowArrow true
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Client" as Client
+participant "FastAPI Router\n(get_project)" as Router
+participant "ProjectRepository" as ProjectRepo
+participant "WorkspaceMemberRepository" as MemberRepo
+database "Database\n(AsyncSession)" as DB
+
+Client -> Router: GET /projects/{project_id}\n(Bearer Token)
+activate Router
+
+' 1. Tìm dự án theo ID
+Router -> ProjectRepo: get_by_id(project_id)
+activate ProjectRepo
+ProjectRepo -> DB: SELECT * FROM projects WHERE id = project_id
+activate DB
+DB --> ProjectRepo: project / null
+deactivate DB
+ProjectRepo --> Router: project
+deactivate ProjectRepo
+
+alt project is None
+    Router --> Client: 404 Not Found\n("Không tìm thấy dự án")
+end
+
+' 2. Kiểm tra thành viên workspace chứa project
+Router -> MemberRepo: get_member(project.workspace_id, current_user.id)
+activate MemberRepo
+MemberRepo -> DB: SELECT * FROM workspace_members\nWHERE workspace_id = ... AND user_id = ...
+activate DB
+DB --> MemberRepo: member / null
+deactivate DB
+MemberRepo --> Router: member
+deactivate MemberRepo
+
+alt member is None
+    Router --> Client: 404 Not Found\n("Không tìm thấy dự án" - Tránh rò rỉ ID)
+else Thành công
+    Router --> Client: 200 OK\n(ProjectResponse)
+end
+
+deactivate Router
+@enduml

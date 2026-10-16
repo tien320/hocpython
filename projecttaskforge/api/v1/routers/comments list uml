@@ -1,0 +1,71 @@
+@startuml
+autonumber
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Client" as Client
+box "FastAPI App" #GhostWhite
+    participant "FastAPI Dependency\nEngine" as Dep
+    participant "Route Handler\nlist_comments_by_task" as Handler
+    participant "TaskRepository" as TaskRepo
+    participant "check_project_access" as AuthFunc
+    participant "CommentRepository" as CommentRepo
+end box
+database "Database (AsyncSession)" as DB
+
+Client -> Dep : GET /tasks/{task_id}/comments\n(Bearer Token)
+activate Dep
+
+' Xử lý Dependencies
+Dep -> Dep : get_current_user()\n(Authenticate & resolve current_user)
+Dep -> Dep : get_db()\n(Provide AsyncSession)
+
+Dep -> Handler : list_comments_by_task(task_id, current_user, session)
+activate Handler
+deactivate Dep
+
+' 1. Kiểm tra sự tồn tại của Task
+Handler -> TaskRepo ** : new(session)
+Handler -> TaskRepo : get_by_id(task_id)
+activate TaskRepo
+
+TaskRepo -> DB : SELECT * FROM tasks WHERE id = task_id
+activate DB
+DB --> TaskRepo : task / None
+deactivate DB
+
+TaskRepo --> Handler : task
+deactivate TaskRepo
+
+alt task is None
+    Handler --> Client : 404 NOT FOUND\n{"detail": "Không tìm thấy task"}
+else task exists
+    ' 2. Xác thực quyền truy cập qua Project
+    Handler -> AuthFunc : check_project_access(task.project_id, current_user.id, session)
+    activate AuthFunc
+    AuthFunc --> Handler : has_access (bool)
+    deactivate AuthFunc
+
+    alt has_access is False
+        Handler --> Client : 403 FORBIDDEN\n{"detail": "Bạn không có quyền truy cập task này"}
+    else has_access is True
+        ' 3. Lấy danh sách Comments
+        Handler -> CommentRepo ** : new(session)
+        Handler -> CommentRepo : get_comments_by_task(task_id)
+        activate CommentRepo
+
+        CommentRepo -> DB : SELECT * FROM comments\nWHERE task_id = task_id\n(thường JOIN user để serialize CommentResponse)
+        activate DB
+        DB --> CommentRepo : list[Comment]
+        deactivate DB
+
+        CommentRepo --> Handler : list[Comment]
+        deactivate CommentRepo
+
+        ' 4. Phản hồi kết quả
+        Handler --> Client : 200 OK\n(List[CommentResponse] JSON)
+    end
+end
+
+deactivate Handler
+@enduml

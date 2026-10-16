@@ -1,0 +1,61 @@
+@startuml
+autonumber
+actor Client
+participant "Router\n(@router.put('/{user_id}'))" as Router
+participant "Auth Dependency\n(get_current_user)" as Auth
+participant "DB Dependency\n(get_db)" as DBDep
+participant "UserService" as Service
+participant "UserRepositories" as Repo
+database "Database" as DB
+participant "Serializer\n(UserResponse)" as Pydantic
+
+Client -> Router: PUT /{user_id}\n(Body: UserUpdate, Header: Bearer Token)
+activate Router
+
+Router -> Auth: Xác thực token
+activate Auth
+alt Token không hợp lệ
+    Auth --> Client: 401 Unauthorized
+end
+Auth --> Router: current_user
+deactivate Auth
+
+Router -> DBDep: Lấy database session
+activate DBDep
+DBDep --> Router: session (AsyncSession)
+deactivate DBDep
+
+note over Router
+  user_repo = UserRepositories(session)
+  service = UserService(user_repo)
+  update_data = user_in.model_dump(exclude_unset=True)
+end note
+
+Router -> Service: update_profile(user_id, current_user, **update_data)
+activate Service
+
+alt Không có quyền (Forbidden) / Không tìm thấy User (NotFound)
+    Service --> Client: 403 Forbidden / 404 Not Found
+else Hợp lệ
+    Service -> Repo: Cập nhật dữ liệu
+    activate Repo
+    Repo -> DB: UPDATE query
+    activate DB
+    DB --> Repo: Bản ghi đã cập nhật
+    deactivate DB
+    Repo --> Service: user entity
+    deactivate Repo
+
+    Service --> Router: user entity
+    deactivate Service
+
+    Router -> Pydantic: Validate & Serialize
+    activate Pydantic
+    Pydantic --> Router: JSON an toàn
+    deactivate Pydantic
+
+    Router --> Client: 200 OK + UserResponse JSON
+end
+
+deactivate Router
+@enduml

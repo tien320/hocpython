@@ -1,0 +1,47 @@
+@startuml
+autonumber
+skinparam style strictuml
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Client" as Client
+participant "Router\n(get_workspace)" as Router
+participant "WorkspaceMemberRepository\n(member_repo)" as MemberRepo
+participant "WorkspaceRepositories\n(ws_repo)" as WsRepo
+database "Database" as DB
+
+Client -> Router: GET /{workspace_id}\n(workspace_id, current_user, session)
+activate Router
+
+' 1. Kiểm tra quyền thành viên
+Router -> MemberRepo: get_member(workspace_id, current_user.id)
+activate MemberRepo
+MemberRepo -> DB: SELECT * FROM workspace_members\nWHERE workspace_id = :ws_id AND user_id = :user_id
+activate DB
+DB --> MemberRepo: member record / null
+deactivate DB
+MemberRepo --> Router: member
+deactivate MemberRepo
+
+alt Không phải thành viên (member is None)
+    Router --> Client: HTTP 403 Forbidden\n{"detail": "Bạn không thuộc workspace này"}
+else Là thành viên hợp lệ (member is not None)
+    ' 2. Lấy thông tin Workspace
+    Router -> WsRepo: get_by_id(workspace_id)
+    activate WsRepo
+    WsRepo -> DB: SELECT * FROM workspaces\nWHERE id = :ws_id
+    activate DB
+    DB --> WsRepo: workspace record / null
+    deactivate DB
+    WsRepo --> Router: workspace
+    deactivate WsRepo
+
+    alt Workspace không tồn tại (workspace is None)
+        Router --> Client: HTTP 404 Not Found\n{"detail": "Không tìm thấy workspace"}
+    else Tìm thấy Workspace (workspace is not None)
+        Router --> Client: HTTP 200 OK\n(WorkspaceResponse)
+    end
+end
+
+deactivate Router
+@enduml

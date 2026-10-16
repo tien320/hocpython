@@ -1,0 +1,98 @@
+@startuml
+autonumber
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Client" as Client
+box "FastAPI App" #GhostWhite
+    participant "FastAPI Dependency\nEngine" as Dep
+    participant "Route Handler\ndelete_comment" as Handler
+    participant "CommentRepository" as CommentRepo
+    participant "TaskRepository" as TaskRepo
+    participant "check_project_access" as AuthFunc
+end box
+database "Database (AsyncSession)" as DB
+
+Client -> Dep : DELETE /comments/{comment_id}\n(Bearer Token)
+activate Dep
+
+' 1. Giải quyết Dependencies
+Dep -> Dep : get_current_user()\n(Authenticate & resolve current_user)
+Dep -> Dep : get_db()\n(Provide AsyncSession)
+
+Dep -> Handler : delete_comment(comment_id, current_user, session)
+activate Handler
+deactivate Dep
+
+' 2. Truy vấn Comment
+Handler -> CommentRepo ** : new(session)
+Handler -> CommentRepo : get_by_id(comment_id)
+activate CommentRepo
+
+CommentRepo -> DB : SELECT * FROM comments WHERE id = comment_id
+activate DB
+DB --> CommentRepo : comment / None
+deactivate DB
+
+CommentRepo --> Handler : comment
+deactivate CommentRepo
+
+alt comment is None
+    Handler --> Client : 404 NOT FOUND\n{"detail": "Không tìm thấy bình luận"}
+else comment exists
+
+    ' 3. Truy vấn Task liên kết
+    Handler -> TaskRepo ** : new(session)
+    Handler -> TaskRepo : get_by_id(comment.task_id)
+    activate TaskRepo
+
+    TaskRepo -> DB : SELECT * FROM tasks WHERE id = comment.task_id
+    activate DB
+    DB --> TaskRepo : task / None
+    deactivate DB
+
+    TaskRepo --> Handler : task
+    deactivate TaskRepo
+
+    alt task is None
+        Handler --> Client : 404 NOT FOUND\n{"detail": "Task liên kết không tồn tại"}
+    else task exists
+
+        ' 4. Kiểm tra quyền truy cập Project
+        Handler -> AuthFunc : check_project_access(task.project_id, current_user.id, session)
+        activate AuthFunc
+        AuthFunc --> Handler : has_access (bool)
+        deactivate AuthFunc
+
+        alt has_access is False
+            Handler --> Client : 403 FORBIDDEN\n{"detail": "Bạn không có quyền trong dự án này"}
+        else has_access is True
+
+            ' 5. Phân quyền xóa (Author HOẶC Admin)
+            Handler -> Handler : is_author = (comment.user_id == current_user.id)\nis_admin = getattr(current_user, "is_admin", False)
+
+            alt not (is_author or is_admin)
+                Handler --> Client : 403 FORBIDDEN\n{"detail": "Bạn không có quyền xóa bình luận này"}
+            else is_author or is_admin
+
+                ' 6. Thực hiện xóa comment
+                Handler -> CommentRepo : delete(comment_id)
+                activate CommentRepo
+
+                CommentRepo -> DB : DELETE FROM comments\nWHERE id = comment_id
+                activate DB
+                DB --> CommentRepo : success
+                deactivate DB
+
+                CommentRepo --> Handler : success
+                deactivate CommentRepo
+
+                ' 7. Trả về HTTP 204 No Content
+                Handler --> Client : 204 NO CONTENT (Empty Body)
+            end
+        end
+    end
+end
+
+deactivate Handler
+@enduml

@@ -1,0 +1,44 @@
+@startuml
+autonumber
+skinparam style strictuml
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Client" as Client
+participant "Router\n(list_workspace_members)" as Router
+participant "WorkspaceMemberRepository\n(member_repo)" as MemberRepo
+database "Database" as DB
+
+Client -> Router: GET /{workspace_id}/members\n(workspace_id, current_user, session)
+activate Router
+
+' 1. Kiểm tra quyền truy cập (Người gọi có phải thành viên không)
+Router -> MemberRepo: get_member(workspace_id, current_user.id)
+activate MemberRepo
+MemberRepo -> DB: SELECT * FROM workspace_members\nWHERE workspace_id = :workspace_id AND user_id = :current_user_id
+activate DB
+DB --> MemberRepo: member record / null
+deactivate DB
+MemberRepo --> Router: member
+deactivate MemberRepo
+
+alt Không phải thành viên (member is None)
+    Router --> Client: HTTP 403 Forbidden\n{"detail": "Bạn không thuộc workspace này"}
+
+else Là thành viên hợp lệ (member is not None)
+    ' 2. Lấy danh sách toàn bộ thành viên của workspace
+    Router -> MemberRepo: list_by_workspace(workspace_id)
+    activate MemberRepo
+    MemberRepo -> DB: SELECT * FROM workspace_members\nWHERE workspace_id = :workspace_id
+    activate DB
+    DB --> MemberRepo: list[members]
+    deactivate DB
+    MemberRepo --> Router: list[members]
+    deactivate MemberRepo
+
+    ' 3. Trả về kết quả
+    Router --> Client: HTTP 200 OK\n(List[WorkspaceMemberResponse])
+end
+
+deactivate Router
+@enduml

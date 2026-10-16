@@ -1,0 +1,48 @@
+@startuml Login_Sequence_Diagram
+autonumber
+actor Client
+participant "AuthRouter\n(FastAPI)" as Router
+participant "OAuth2Form" as Form
+participant "UserRepositories" as Repo
+participant "SecurityUtils" as Sec
+database "Database" as DB
+
+Client -> Router: POST /api/v1/auth/login\nForm-data: {username, password}
+activate Router
+
+Router -> Form: Parse OAuth2PasswordRequestForm
+activate Form
+Form --> Router: form_data (username, password)
+deactivate Form
+
+Router -> Repo: get_by_email(form_data.username)
+activate Repo
+Repo -> DB: SELECT * FROM users WHERE email = ?
+activate DB
+DB --> Repo: user / None
+deactivate DB
+Repo --> Router: user / None
+deactivate Repo
+
+alt user == None
+    Router --> Client: 401 Unauthorized\n{"detail": "Email hoặc mật khẩu không chính xác"}
+else user tồn tại
+    Router -> Sec: verify_password(form_data.password, user.password_hash)
+    activate Sec
+    Sec --> Router: is_valid (True / False)
+    deactivate Sec
+
+    alt is_valid == False
+        Router --> Client: 401 Unauthorized\n{"detail": "Email hoặc mật khẩu không chính xác"}
+    else is_valid == True
+        Router -> Sec: create_access_token(data={"sub": str(user.id)})
+        activate Sec
+        Sec --> Router: access_token
+        deactivate Sec
+
+        Router --> Client: 200 OK\n{"access_token": token, "token_type": "bearer"}
+    end
+end
+
+deactivate Router
+@enduml

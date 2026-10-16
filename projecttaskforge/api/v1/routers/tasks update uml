@@ -1,0 +1,116 @@
+@startuml
+autonumber
+skinparam style strictuml
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Client / User" as Client
+box "FastAPI Layer" #AliceBlue
+    participant "Router / Endpoint\n(update_task)" as Endpoint
+    participant "Auth / Dependencies\n(get_current_user, get_db)" as Deps
+end box
+
+box "Repository Layer" #GhostWhite
+    participant "TaskRepository" as TaskRepo
+    participant "ProjectRepository" as ProjectRepo
+    participant "WorkspaceMemberRepository" as MemberRepo
+end box
+
+database "Database\n(AsyncSession)" as DB
+
+== Khởi tạo & Tiêm phụ thuộc ==
+Client -> Endpoint: PATCH /tasks/{task_id}\n(data: TaskUpdate, Bearer Token)
+activate Endpoint
+
+Endpoint -> Deps: Xác thực user & tạo AsyncSession
+activate Deps
+Deps --> Endpoint: current_user, session
+deactivate Deps
+
+== 1. Tìm thông tin Task ==
+Endpoint -> TaskRepo: get_by_id(task_id)
+activate TaskRepo
+TaskRepo -> DB: SELECT task WHERE id = task_id
+DB --> TaskRepo: task data / null
+TaskRepo --> Endpoint: task
+deactivate TaskRepo
+
+alt #MistyRose Task không tồn tại
+    Endpoint --> Client: 404 Not Found ("Không tìm thấy task")
+end
+
+== 2. Tìm thông tin Project chứa Task ==
+Endpoint -> ProjectRepo: get_by_id(task.project_id)
+activate ProjectRepo
+ProjectRepo -> DB: SELECT project WHERE id = task.project_id
+DB --> ProjectRepo: project data / null
+ProjectRepo --> Endpoint: project
+deactivate ProjectRepo
+
+alt #MistyRose Project không tồn tại
+    Endpoint --> Client: 404 Not Found ("Dự án chứa task này không tồn tại")
+end
+
+== 3. Kiểm tra User thuộc Workspace ==
+Endpoint -> MemberRepo: get_member(project.workspace_id, current_user.id)
+activate MemberRepo
+MemberRepo -> DB: SELECT member WHERE workspace_id AND user_id
+DB --> MemberRepo: member data / null
+MemberRepo --> Endpoint: member
+deactivate MemberRepo
+
+alt #MistyRose User không thuộc Workspace
+    Endpoint --> Client: 404 Not Found ("Không tìm thấy task" - bảo mật che giấu)
+end
+
+== 4. Phân quyền cập nhật (RBAC / Ownership) ==
+Endpoint -> Endpoint: Kiểm tra quyền:\n- Role: OWNER hoặc ADMIN?\n- Quyền tác giả: creator_id == user_id?\n- Người phụ trách: assignee_id == user_id?
+
+alt #MistyRose Không thỏa mãn bất kỳ quyền nào
+    Endpoint --> Client: 403 Forbidden ("Bạn không có quyền chỉnh sửa công việc này")
+end
+
+== 5. Lọc dữ liệu cập nhật ==
+Endpoint -> Endpoint: update_data = data.model_dump(exclude_unset=True)
+
+alt #Lavender Không có trường nào cần cập nhật (update_data rỗng)
+    Endpoint --> Client: 200 OK (task hiện tại)
+end
+
+== 6. Kiểm tra Assignee mới (nếu có cập nhật assignee_id) ==
+opt Có assignee_id trong update_data và != null
+    Endpoint -> MemberRepo: get_member(project.workspace_id, update_data["assignee_id"])
+    activate MemberRepo
+    MemberRepo -> DB: SELECT member WHERE workspace_id AND user_id = assignee_id
+    DB --> MemberRepo: assignee_member / null
+    MemberRepo --> Endpoint: assignee_member
+    deactivate MemberRepo
+
+    alt #MistyRose Assignee mới không thuộc Workspace
+        Endpoint --> Client: 400 Bad Request ("Người được phân công không thuộc workspace này")
+    end
+end
+
+== 7. Thực thi cập nhật & Transaction ==
+Endpoint -> TaskRepo: update(task_id, **update_data)
+activate TaskRepo
+TaskRepo -> DB: UPDATE tasks SET ... WHERE id = task_id
+deactivate TaskRepo
+
+alt #Honeydew Cập nhật thành công
+    Endpoint -> DB: commit()
+    activate DB
+    DB --> Endpoint: OK
+    deactivate DB
+    Endpoint --> Client: 200 OK (TaskResponse)
+
+else #MistyRose Lỗi ràng buộc (IntegrityError)
+    Endpoint -> DB: rollback()
+    activate DB
+    DB --> Endpoint: OK
+    deactivate DB
+    Endpoint --> Client: 400 Bad Request ("Dữ liệu cập nhật không hợp lệ")
+end
+
+deactivate Endpoint
+@enduml

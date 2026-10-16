@@ -1,0 +1,44 @@
+@startuml
+autonumber
+skinparam style strictuml
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Client / User" as Client
+box "FastAPI Layer" #AliceBlue
+    participant "Router / Endpoint\n(get_task)" as Endpoint
+    participant "Auth / Dependencies\n(get_current_user, get_db)" as Deps
+end box
+
+box "Repository Layer" #GhostWhite
+    participant "TaskRepository" as TaskRepo
+end box
+
+database "Database\n(AsyncSession)" as DB
+
+== Khởi tạo & Tiêm phụ thuộc ==
+Client -> Endpoint: GET /tasks/{task_id}\n(Bearer Token)
+activate Endpoint
+
+Endpoint -> Deps: Xác thực user & tạo AsyncSession
+activate Deps
+Deps --> Endpoint: current_user, session
+deactivate Deps
+
+== 1. Tìm thông tin Task ==
+Endpoint -> TaskRepo: get_by_id(task_id)
+activate TaskRepo
+TaskRepo -> DB: SELECT task WHERE id = task_id
+DB --> TaskRepo: task data / null
+TaskRepo --> Endpoint: task
+deactivate TaskRepo
+
+== 2. Kiểm tra kết quả & Phản hồi ==
+alt #MistyRose Task không tồn tại
+    Endpoint --> Client: 404 Not Found ("Không tìm thấy task")
+else #Honeydew Task tồn tại
+    Endpoint --> Client: 200 OK (TaskResponse)
+end
+
+deactivate Endpoint
+@enduml

@@ -1,0 +1,48 @@
+@startuml Register_Sequence_Diagram
+autonumber
+actor Client
+participant "AuthRouter\n(FastAPI)" as Router
+participant "UserRepositories" as Repo
+participant "SecurityUtils" as Sec
+database "Database" as DB
+
+Client -> Router: POST /api/v1/auth/register\nPayload: {email, password, full_name}
+activate Router
+
+Router -> Router: Validate schema (UserCreate)
+alt Dữ liệu không hợp lệ (Invalid Schema)
+    Router --> Client: 422 Unprocessable Entity
+end
+
+Router -> Repo: get_by_email(user_in.email)
+activate Repo
+Repo -> DB: SELECT * FROM users WHERE email = ?
+activate DB
+DB --> Repo: existing_user / None
+deactivate DB
+Repo --> Router: existing_user / None
+deactivate Repo
+
+alt existing_user != None (Email đã tồn tại)
+    Router --> Client: 400 Bad Request\n{"detail": "Email đã được sử dụng"}
+else Email hợp lệ (Chưa tồn tại)
+    Router -> Sec: hash_password(user_in.password)
+    activate Sec
+    Sec --> Router: hashed_pwd
+    deactivate Sec
+
+    Router -> Repo: create(email, full_name, password_hash=hashed_pwd)
+    activate Repo
+    Repo -> DB: INSERT INTO users (...)
+    activate DB
+    DB --> Repo: user (record mới)
+    deactivate DB
+    Repo --> Router: user
+    deactivate Repo
+
+    Router -> Router: Filter qua UserResponse schema
+    Router --> Client: 201 Created\nUserResponse (Ẩn password_hash)
+end
+
+deactivate Router
+@enduml

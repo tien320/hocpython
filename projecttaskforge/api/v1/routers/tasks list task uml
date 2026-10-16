@@ -1,0 +1,69 @@
+@startuml
+autonumber
+skinparam style strictuml
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Client / User" as Client
+box "FastAPI Layer" #AliceBlue
+    participant "Router / Endpoint\n(list_tasks_by_project)" as Endpoint
+    participant "Auth / Dependencies\n(get_current_user, get_db)" as Deps
+end box
+
+box "Repository Layer" #GhostWhite
+    participant "ProjectRepository" as ProjectRepo
+    participant "WorkspaceMemberRepository" as MemberRepo
+    participant "TaskRepository" as TaskRepo
+end box
+
+database "Database\n(AsyncSession)" as DB
+
+== Khởi tạo & Tiêm phụ thuộc ==
+Client -> Endpoint: GET /projects/{project_id}/tasks\n?status=...&priority=...&assignee_id=...&search=...\n(Bearer Token)
+activate Endpoint
+
+Endpoint -> Deps: Xác thực user & tạo AsyncSession
+activate Deps
+Deps --> Endpoint: current_user, session
+deactivate Deps
+
+== 1. Tìm thông tin dự án ==
+Endpoint -> ProjectRepo: get_by_id(project_id)
+activate ProjectRepo
+ProjectRepo -> DB: SELECT project WHERE id = project_id
+DB --> ProjectRepo: project data / null
+ProjectRepo --> Endpoint: project
+deactivate ProjectRepo
+
+alt #MistyRose Project không tồn tại
+    Endpoint --> Client: 404 Not Found ("Không tìm thấy dự án")
+end
+
+== 2. Kiểm tra quyền truy cập Workspace ==
+Endpoint -> MemberRepo: get_member(project.workspace_id, current_user.id)
+activate MemberRepo
+MemberRepo -> DB: SELECT member WHERE workspace_id AND user_id
+DB --> MemberRepo: member data / null
+MemberRepo --> Endpoint: member
+deactivate MemberRepo
+
+alt #MistyRose User không thuộc Workspace
+    Endpoint --> Client: 404 Not Found ("Không tìm thấy dự án" - che giấu sự tồn tại)
+end
+
+== 3. Lấy danh sách Task theo bộ lọc ==
+Endpoint -> Endpoint: Chuẩn hóa tham số search\n(search.strip() nếu có)
+
+Endpoint -> TaskRepo: get_tasks_by_project(\n  project_id,\n  status=status_filter,\n  priority=priority,\n  assignee_id=assignee_id,\n  search=cleaned_search\n)
+activate TaskRepo
+
+TaskRepo -> DB: SELECT tasks WHERE project_id = project_id\nAND [áp dụng các điều kiện lọc động]
+DB --> TaskRepo: list of tasks
+TaskRepo --> Endpoint: list of tasks
+deactivate TaskRepo
+
+== Trả kết quả ==
+Endpoint --> Client: 200 OK (List[TaskResponse])
+deactivate Endpoint
+
+@enduml

@@ -1,0 +1,81 @@
+@startuml
+autonumber
+skinparam style strictuml
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Client" as Client
+participant "Router\n(create_workspace)" as Router
+participant "WorkspaceRepositories\n(ws_repo)" as WsRepo
+participant "WorkspaceMemberRepository\n(member_repo)" as MemberRepo
+participant "AsyncSession\n(session)" as Session
+database "Database" as DB
+
+Client -> Router: POST /workspaces\n(data: WorkspaceCreate, current_user)
+activate Router
+
+' 1. Kiểm tra nhanh slug
+Router -> WsRepo: get_by_slug(data.slug)
+activate WsRepo
+WsRepo -> DB: SELECT * FROM workspaces WHERE slug = ...
+activate DB
+DB --> WsRepo: Kết quả truy vấn
+deactivate DB
+WsRepo --> Router: existing
+deactivate WsRepo
+
+alt Slug đã tồn tại (existing is not None)
+    Router --> Client: HTTP 409 Conflict\n{"detail": "Slug workspace đã tồn tại"}
+else Slug chưa tồn tại trong bước đọc
+    ' 2. Bắt đầu Transaction
+    Router -> Session: begin()
+    activate Session
+    Session -> DB: BEGIN TRANSACTION
+    activate DB
+
+    group try [Transaction Scope]
+        Router -> WsRepo: create(name, slug, owner_id)
+        activate WsRepo
+        WsRepo -> Session: add(workspace) & flush()
+        Session -> DB: INSERT INTO workspaces (...)
+        DB --> Session: workspace.id
+        Session --> WsRepo: workspace
+        WsRepo --> Router: workspace
+        deactivate WsRepo
+
+        Router -> MemberRepo: add_member(workspace_id, user_id, role=OWNER)
+        activate MemberRepo
+        MemberRepo -> Session: add(member)
+        Session -> DB: INSERT INTO workspace_members (...)
+        MemberRepo --> Router: success
+        deactivate MemberRepo
+
+        Router -> Session: commit (kết thúc block session.begin)
+        Session -> DB: COMMIT TRANSACTION
+        deactivate DB
+        deactivate Session
+
+        ' 3. Refresh workspace
+        Router -> Session: refresh(workspace)
+        activate Session
+        Session -> DB: SELECT * FROM workspaces WHERE id = workspace.id
+        activate DB
+        DB --> Session: Dữ liệu mới nhất
+        deactivate DB
+        Session --> Router: workspace refreshed
+        deactivate Session
+
+        Router --> Client: HTTP 201 Created\n(WorkspaceResponse)
+    
+    else except IntegrityError [Race Condition ở DB]
+        activate DB
+        DB --> Session: Unique Constraint Violation (duplicate slug)
+        Session -> DB: ROLLBACK TRANSACTION
+        deactivate DB
+        Session --> Router: raise IntegrityError
+        Router --> Client: HTTP 409 Conflict\n{"detail": "Slug workspace đã tồn tại"}
+    end
+end
+
+deactivate Router
+@enduml

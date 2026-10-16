@@ -1,0 +1,90 @@
+@startuml
+autonumber
+skinparam style strictuml
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Client / User" as Client
+box "FastAPI Layer" #AliceBlue
+    participant "Router / Endpoint\n(delete_task)" as Endpoint
+    participant "Auth / Dependencies\n(get_current_user, get_db)" as Deps
+end box
+
+box "Repository Layer" #GhostWhite
+    participant "TaskRepository" as TaskRepo
+    participant "ProjectRepository" as ProjectRepo
+    participant "WorkspaceMemberRepository" as MemberRepo
+end box
+
+database "Database\n(AsyncSession)" as DB
+
+== Khởi tạo & Tiêm phụ thuộc ==
+Client -> Endpoint: DELETE /tasks/{task_id}\n(Bearer Token)
+activate Endpoint
+
+Endpoint -> Deps: Xác thực user & tạo AsyncSession
+activate Deps
+Deps --> Endpoint: current_user, session
+deactivate Deps
+
+== 1. Tìm thông tin Task ==
+Endpoint -> TaskRepo: get_by_id(task_id)
+activate TaskRepo
+TaskRepo -> DB: SELECT task WHERE id = task_id
+DB --> TaskRepo: task data / null
+TaskRepo --> Endpoint: task
+deactivate TaskRepo
+
+alt #MistyRose Task không tồn tại
+    Endpoint --> Client: 404 Not Found ("Không tìm thấy công việc")
+end
+
+== 2. Tìm thông tin Project chứa Task ==
+Endpoint -> ProjectRepo: get_by_id(task.project_id)
+activate ProjectRepo
+ProjectRepo -> DB: SELECT project WHERE id = task.project_id
+DB --> ProjectRepo: project data / null
+ProjectRepo --> Endpoint: project
+deactivate ProjectRepo
+
+alt #MistyRose Project không tồn tại
+    Endpoint --> Client: 404 Not Found ("Dự án chứa công việc này không tồn tại")
+end
+
+== 3. Kiểm tra User thuộc Workspace ==
+Endpoint -> MemberRepo: get_member(project.workspace_id, current_user.id)
+activate MemberRepo
+MemberRepo -> DB: SELECT member WHERE workspace_id AND user_id
+DB --> MemberRepo: member data / null
+MemberRepo --> Endpoint: member
+deactivate MemberRepo
+
+alt #MistyRose User không thuộc Workspace
+    Endpoint --> Client: 404 Not Found ("Không tìm thấy công việc" - giả lập 404 chống quét ID)
+end
+
+== 4. Phân quyền xóa ==
+Endpoint -> Endpoint: Kiểm tra quyền:\n- is_creator: task.creator_id == current_user.id\n- is_admin_or_owner: role in [OWNER, ADMIN]
+
+alt #MistyRose Không phải Creator và không phải Owner/Admin
+    Endpoint --> Client: 403 Forbidden ("Bạn không có quyền xóa công việc này")
+end
+
+== 5. Xóa Task & Quản lý Transaction ==
+Endpoint -> TaskRepo: delete(task_id)
+activate TaskRepo
+TaskRepo -> DB: DELETE FROM tasks WHERE id = task_id
+DB --> TaskRepo: OK
+TaskRepo --> Endpoint: OK
+deactivate TaskRepo
+
+Endpoint -> DB: commit()
+activate DB
+DB --> Endpoint: OK
+deactivate DB
+
+== Phản hồi thành công ==
+Endpoint --> Client: 204 No Content
+deactivate Endpoint
+
+@enduml

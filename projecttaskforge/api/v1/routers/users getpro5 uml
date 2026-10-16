@@ -1,0 +1,37 @@
+@startuml
+autonumber
+actor Client
+participant "FastAPI Router\n(@router.get('/me'))" as Router
+participant "Dependency Injection\n(Depends(get_current_user))" as Dep
+database "Database" as DB
+participant "Pydantic Serializer\n(UserResponse)" as Pydantic
+
+Client -> Router: GET /me (Headers: Authorization Bearer <token>)
+activate Router
+
+Router -> Dep: Gọi get_current_user(token)
+activate Dep
+
+alt Token không hợp lệ hoặc hết hạn
+    Dep --> Client: 401 Unauthorized
+else Token hợp lệ
+    Dep -> DB: Truy vấn user theo thông tin từ token (e.g. user_id/username)
+    activate DB
+    DB --> Dep: Trả về bản ghi User
+    deactivate DB
+    
+    Dep --> Router: Inject đối tượng User (current_user)
+    deactivate Dep
+    
+    Router -> Router: Chạy thân hàm get_my_profile()\n-> return current_user
+    
+    Router -> Pydantic: Parse & Validate đối tượng qua UserResponse
+    activate Pydantic
+    Pydantic --> Router: JSON đã lọc (ẩn trường nhạy cảm)
+    deactivate Pydantic
+    
+    Router --> Client: 200 OK + UserResponse JSON
+end
+
+deactivate Router
+@enduml

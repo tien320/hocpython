@@ -1,0 +1,67 @@
+@startuml
+autonumber
+skinparam responseMessageBelowArrow true
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Client" as Client
+participant "FastAPI Router\n(delete_project)" as Router
+participant "ProjectRepository" as ProjectRepo
+participant "WorkspaceMemberRepository" as MemberRepo
+database "Database\n(AsyncSession)" as DB
+
+Client -> Router: DELETE /projects/{project_id}\n(Bearer Token)
+activate Router
+
+' 1. Tìm kiếm dự án
+Router -> ProjectRepo: get_by_id(project_id)
+activate ProjectRepo
+ProjectRepo -> DB: SELECT * FROM projects WHERE id = project_id
+activate DB
+DB --> ProjectRepo: project / null
+deactivate DB
+ProjectRepo --> Router: project
+deactivate ProjectRepo
+
+alt project is None
+    Router --> Client: 404 Not Found\n("Không tìm thấy dự án")
+end
+
+' 2. Kiểm tra thành viên workspace
+Router -> MemberRepo: get_member(project.workspace_id, current_user.id)
+activate MemberRepo
+MemberRepo -> DB: SELECT * FROM workspace_members\nWHERE workspace_id = ... AND user_id = ...
+activate DB
+DB --> MemberRepo: member / null
+deactivate DB
+MemberRepo --> Router: member
+deactivate MemberRepo
+
+alt member is None
+    Router --> Client: 404 Not Found\n("Không tìm thấy dự án" - tránh dò ID)
+end
+
+' 3. Kiểm tra vai trò
+alt member.role not in [OWNER, ADMIN]
+    Router --> Client: 403 Forbidden\n("Chỉ quản trị viên hoặc chủ sở hữu...")
+else member.role in [OWNER, ADMIN]
+    ' 4. Thực thi xóa và lưu thay đổi
+    Router -> ProjectRepo: delete(project_id)
+    activate ProjectRepo
+    ProjectRepo -> DB: DELETE FROM projects WHERE id = project_id
+    activate DB
+    DB --> ProjectRepo: Success
+    deactivate DB
+    ProjectRepo --> Router: Done
+    deactivate ProjectRepo
+
+    Router -> DB: session.commit()
+    activate DB
+    DB --> Router: Commit OK
+    deactivate DB
+
+    Router --> Client: 204 No Content (Empty Body)
+end
+
+deactivate Router
+@enduml

@@ -1,0 +1,48 @@
+@startuml
+autonumber
+skinparam style strictuml
+skinparam BoxPadding 10
+skinparam ParticipantPadding 10
+
+actor "Client" as Client
+participant "Router\n(delete_workspace)" as Router
+participant "WorkspaceRepositories\n(ws_repo)" as WsRepo
+database "Database" as DB
+
+Client -> Router: DELETE /{workspace_id}\n(workspace_id, current_user, session)
+activate Router
+
+' 1. Tìm thông tin Workspace
+Router -> WsRepo: get_by_id(workspace_id)
+activate WsRepo
+WsRepo -> DB: SELECT * FROM workspaces WHERE id = :workspace_id
+activate DB
+DB --> WsRepo: workspace / null
+deactivate DB
+WsRepo --> Router: workspace
+deactivate WsRepo
+
+' 2. Kiểm tra Workspace có tồn tại không
+alt Workspace không tồn tại (workspace is None)
+    Router --> Client: HTTP 404 Not Found\n{"detail": "Không tìm thấy workspace"}
+
+' 3. Kiểm tra quyền sở hữu (Chỉ OWNER được xóa)
+else Người gọi không phải OWNER (workspace.owner_id != current_user.id)
+    Router --> Client: HTTP 403 Forbidden\n{"detail": "Chỉ OWNER mới có quyền xóa workspace"}
+
+' 4. Xóa Workspace hợp lệ
+else Là OWNER hợp lệ (workspace.owner_id == current_user.id)
+    Router -> WsRepo: delete(workspace_id)
+    activate WsRepo
+    WsRepo -> DB: DELETE FROM workspaces WHERE id = :workspace_id
+    activate DB
+    DB --> WsRepo: success
+    deactivate DB
+    WsRepo --> Router: success
+    deactivate WsRepo
+
+    Router --> Client: HTTP 204 No Content
+end
+
+deactivate Router
+@enduml
