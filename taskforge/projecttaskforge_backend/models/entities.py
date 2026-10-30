@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from typing import List, Optional
-from sqlalchemy import DateTime, Enum as SQLEnum, ForeignKey, String, Text, Uuid, TypeDecorator
+from sqlalchemy import DateTime, Enum as SQLEnum, ForeignKey, String, Text, TypeDecorator
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.oracle import RAW
 
@@ -73,9 +73,6 @@ class Workspace(Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     slug: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
-    owner_id: Mapped[uuid.UUID] = mapped_column(
-        OracleUUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
-    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, onupdate=utc_now
@@ -119,9 +116,6 @@ class Project(Base):
         "created_by", OracleUUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    workspace_id: Mapped[uuid.UUID] = mapped_column(
-        OracleUUID, ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
-    )
     key: Mapped[str] = mapped_column(String(32), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
@@ -186,9 +180,6 @@ class Comment(Base):
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
         OracleUUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
-    )
-    task_id: Mapped[uuid.UUID] = mapped_column(
-        OracleUUID, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False
     )
     content: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)

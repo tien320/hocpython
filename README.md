@@ -1,97 +1,103 @@
-﻿# hocpython
+# hocpython
 
-Kho bài tập và project thực hành Python, SQL, Pandas và lập trình hướng đối
-tượng. Repository hiện gồm các bài luyện cú pháp, cấu trúc dữ liệu, bài
-LeetCode, xử lý dữ liệu Olist và một số ứng dụng CRUD nhỏ.
+Kho bài tập và dự án thực hành Python, SQL (SQLite & Oracle Database), Phân tích dữ liệu (Pandas & ETL), Kiến trúc ứng dụng (Clean / Layered Architecture) và ứng dụng Fullstack (FastAPI + React).
 
-## Nội dung repository
+---
 
-### Bài tập Python
+## 📂 Nội dung repository
 
-- `syntax1.py` đến `syntax9.py`: các bài luyện cú pháp Python.
-- `luyensyntax.py`, `300baicode.py`, `test.py`: bài tập tổng hợp và thử nghiệm.
-- `file_tong_hop.py`: file tổng hợp các bài thực hành.
-- `lamsachchuoi.py`: bài tập xử lý và làm sạch chuỗi.
-- `module1.py` đến `module4.py`: thực hành tách module và import module.
-- `binarytree.py`, `linkedlist.py`: thực hành cây nhị phân và linked list.
-- `leetcode/`: lời giải một số bài LeetCode và file review.
+### 1. Dự án ứng dụng tiêu biểu
 
-Tài liệu liên quan: [lithuyetpython.md](lithuyetpython.md),
-[chiasyntax.md](chiasyntax.md) và [chiamodule.md](chiamodule.md).
+- **[`taskforge/`](taskforge/) (Fullstack Application)**: Hệ thống quản lý công việc và dự án theo nhóm với phân quyền người dùng (Owner, Admin, Member):
+  - **[`projecttaskforge_backend/`](taskforge/projecttaskforge_backend/)**: RESTful API Backend xây dựng bằng **FastAPI**, kết nối **Oracle Database** thông qua **SQLAlchemy 2.0 (Async)** và `python-oracledb`, quản lý migration với **Alembic**, bảo mật JWT, thiết kế theo chuẩn Clean Architecture (Routers, Services, Repositories, Models, Schemas).
+  - **[`projecttaskforge_frontend/`](taskforge/projecttaskforge_frontend/)**: Giao diện người dùng Single Page App (SPA) với **React 19** và **Vite**, quản lý xác thực qua Context API, tích hợp Axios và Vite proxy để gọi API backend.
+- **[`quan li user oracle/`](quan%20li%20user%20oracle/)**: Hệ thống quản lý người dùng kết nối Oracle Database, mã hóa mật khẩu bcrypt, bảo mật JWT token, Alembic migration kèm Postman Collections và Environment.
+- **[`e-commerce oracle/`](e-commerce%20oracle/)**: Mô hình quản lý đơn hàng và sản phẩm (E-commerce) với kết nối Oracle Database và Repository Pattern.
+- **[`quan li user/`](quan%20li%20user/)**: Ứng dụng quản lý người dùng cơ bản theo mô hình phân tầng.
+- **[`project mathang/`](project%20mathang/)**: Ứng dụng hướng đối tượng (OOP) quản lý mặt hàng, thiết bị điện tử, tích hợp FastAPI và SQLite.
+- **[`project1/`](project1/)**: Ứng dụng quản lý sản phẩm và đơn hàng với SQLite, áp dụng Context Manager kết nối an toàn, phân tách Model - Repository - Service - API.
+- **[`project2/sinhvienmanage/`](project2/sinhvienmanage/)**: Ứng dụng quản lý sinh viên hướng đối tượng.
+- **[`project3/usermanage/`](project3/usermanage/)**: Ứng dụng quản lý người dùng dạng console/service.
+- **[`projectreview/studentmanagement/`](projectreview/studentmanagement/)**: Dự án ôn tập OOP kế thừa và quản lý sinh viên (`Person`, `Student`).
 
-### SQL và cơ sở dữ liệu
+### 2. SQL & Cơ sở dữ liệu
 
-- `11-8.sql`, `crud.sql`, `crudnangcao.sql`: bài tập CRUD và truy vấn SQL.
-- `cte-subquery.sql`, `sql-subquery.sql`: CTE, subquery và truy vấn lồng.
-- `logs/query_log.sql`: log các câu truy vấn đã thực hành.
-- `store.db`: cơ sở dữ liệu SQLite được dùng bởi một số project.
-- `users.json`: dữ liệu mẫu dạng JSON.
+- **Thực hành SQLite với Python**:
+  - `intro_sqlite3.py`, `crudsqlite3.py`: kết nối và thao tác CRUD cơ bản với SQLite.
+  - `productionsqlite3.py`, `sytnaxsqlite3.py`: áp dụng Context Manager, xử lý transaction và bảo đảm an toàn kết nối.
+- **Truy vấn SQL**:
+  - `11-8.sql`, `crud.sql`, `crudnangcao.sql`: các bài tập CRUD và truy vấn SQL nâng cao.
+  - `cte-subquery.sql`, `sql-subquery.sql`: kỹ thuật CTE (Common Table Expressions) và Subquery.
+  - `logs/query_log.sql`: log các câu truy vấn thực hành.
+- **Tài liệu tham khảo**: [lithuyetsql.md](lithuyetsql.md), [sqlite3.md](sqlite3.md), [singleton.md](singleton.md), [projectstructure.md](projectstructure.md).
 
-Tài liệu tham khảo: [lithuyetsql.md](lithuyetsql.md) và
-[pandas_crud_syntax_cheatsheet.md](pandas_crud_syntax_cheatsheet.md).
+### 3. Phân tích dữ liệu & ETL
 
-### Phân tích dữ liệu và ETL
+- `hoc_pandas.py`: đọc, lọc, biến đổi và phân tích dữ liệu bằng Pandas.
+- `readolist.py`: khám phá tập dữ liệu thương mại điện tử Olist.
+- `baitoanetl.py`: bài tập xử lý luồng ETL.
+- `pipeline.py`: pipeline đọc dữ liệu đơn hàng, làm sạch, join `orders` / `items` / `products` và tổng hợp doanh thu xuất kho theo ngày (`fact_outbound_daily.csv`).
+- `olist/`: tập dữ liệu CSV gốc của Olist.
 
-- `hoc_pandas.py`: thực hành đọc, biến đổi và phân tích dữ liệu bằng Pandas.
-- `readolist.py`: đọc và khám phá dữ liệu bộ Olist.
-- `baitoanetl.py`: bài tập ETL.
-- `pipeline.py`: pipeline đọc dữ liệu đơn hàng, làm sạch, join orders/items/products
-  và tạo bảng doanh thu xuất kho theo ngày.
-- `olist/`: các file CSV gốc của bộ dữ liệu Olist.
-- `fact_outbound_daily.csv`: kết quả tổng hợp của pipeline ETL.
-- `product_category_name_translation.csv`: dữ liệu dịch tên nhóm sản phẩm.
-- `OLIST.png`: hình minh họa dữ liệu Olist.
+### 4. Bài tập Python & Thuật toán
 
-### Các project ứng dụng
+- `syntax1.py` đến `syntax9.py`: chuỗi bài luyện cú pháp Python từ cơ bản đến nâng cao.
+- `luyensyntax.py`, `300baicode.py`, `test.py`: bài tập giải thuật tổng hợp.
+- `binarytree.py`, `linkedlist.py`: cấu trúc dữ liệu cây nhị phân và danh sách liên kết.
+- `module1.py` đến `module4.py`: thực hành tách và tái sử dụng module.
+- `lamsachchuoi.py`: xử lý và chuẩn hóa chuỗi dữ liệu.
+- `leetcode/`: lời giải và phân tích các bài toán LeetCode.
+- Tài liệu liên quan: [lithuyetpython.md](lithuyetpython.md), [chiasyntax.md](chiasyntax.md), [chiamodule.md](chiamodule.md).
 
-- [`project mathang/`](project%20mathang/): project Python hướng đối tượng về
-  mặt hàng, đồ điện tử và tuổi thọ sản phẩm. Thư mục gồm `models/`, `schemas/`,
-  `database/`, `api/`, `core/` và `main.py`.
-- [`project1/`](project1/): ứng dụng quản lý sản phẩm và đơn hàng với SQLite,
-  tổ chức theo các lớp database, model, repository, service và API trong `main.py`.
-- [`project2/sinhvienmanage/`](project2/sinhvienmanage/): ứng dụng quản lý
-  sinh viên gồm `sinhvien.py`, `repository.py`, `app.py` và `main.py`.
-- [`project3/usermanage/`](project3/usermanage/): ứng dụng quản lý người dùng
-  gồm `user.py`, `repository.py`, `app.py` và `main.py`.
-- [`projectreview/studentmanagement/`](projectreview/studentmanagement/):
-  project ôn tập quản lý sinh viên, có các lớp `Person`, `Student`, repository,
-  app và main.
+---
 
-## Cách chạy
+## 🚀 Hướng dẫn khởi chạy
 
-Tạo hoặc kích hoạt môi trường ảo trước khi chạy các project:
+### 1. Kích hoạt môi trường ảo Python
 
 ```powershell
-\.venv\Scripts\Activate.ps1
+.\.venv\Scripts\Activate.ps1
+# Cài đặt các thư viện cần thiết
+pip install -r requirements.txt
 ```
 
-Chạy một file bài tập ở thư mục gốc:
+### 2. Chạy bài tập hoặc script đơn lẻ
 
 ```powershell
 python syntax1.py
 python pipeline.py
 ```
 
-Chạy project bằng cách chuyển tới đúng thư mục của project:
+### 3. Khởi chạy hệ thống TaskForge (Fullstack)
 
+**Backend:**
 ```powershell
-cd project1
-python main.py
+cd taskforge\projecttaskforge_backend
+# Cấu hình file .env theo thông tin Oracle DB
+alembic upgrade head
+python run.py
 ```
+> Tài liệu Swagger API tại: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
-Với project FastAPI trong `project mathang`, cần chạy lệnh từ chính thư mục
-project để các import nội bộ hoạt động đúng:
+**Frontend:**
+```powershell
+cd taskforge\projecttaskforge_frontend
+npm install
+npm run dev
+```
+> Truy cập giao diện web tại: [http://localhost:5173](http://localhost:5173)
+
+### 4. Khởi chạy các project FastAPI khác
 
 ```powershell
 cd "project mathang"
 python main.py
 ```
 
-## Ghi chú
+---
 
-- Đây là repository học tập, nên các file có thể được bổ sung hoặc thay đổi
-  thường xuyên.
-- Các file SQL hiện có dùng cho việc học và thực hành truy vấn; repository chưa
-  chứa cấu hình Oracle hoặc MongoDB.
-- `pipeline.py` đang dùng đường dẫn dữ liệu được khai báo trực tiếp trong file.
-  Khi chạy trên máy khác, cần cập nhật biến `DATA_FOLDER` cho phù hợp.
+## 📌 Ghi chú
+
+- **Oracle Database**: Các project `taskforge`, `quan li user oracle` và `e-commerce oracle` yêu cầu cơ sở dữ liệu Oracle đang chạy. Hãy kiểm tra và khai báo chính xác thông tin đăng nhập trong file `.env` trước khi khởi chạy.
+- **Windows Async Event Loop**: Trên hệ điều hành Windows, các backend dùng `python-oracledb` ở chế độ bất đồng bộ cần chạy qua launcher `run.py` (sử dụng `SelectorEventLoop`) để tránh xung đột với IOCP loop mặc định.
+- **Dữ liệu ETL**: Script `pipeline.py` đọc dữ liệu từ thư mục `olist/`; nếu chuyển mã nguồn sang máy khác, hãy đảm bảo cấu hình đường dẫn dữ liệu phù hợp.

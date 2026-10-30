@@ -1,25 +1,37 @@
 import uuid
 from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import IntegrityError
 
 from api.deps import get_current_user
 from core.database import get_db
 from models.entities import User
 from models.enums import WorkspaceRole
-from repositories.model_repositories import WorkspaceMemberRepository, WorkspaceRepositories
+from repositories.model_repositories import (
+    UserRepositories,
+    WorkspaceMemberRepository,
+    WorkspaceRepositories,
+)
 from schema.workspace import (
     WorkspaceCreate,
     WorkspaceMemberAdd,
     WorkspaceMemberResponse,
-    WorkspaceMemberUpdateRole,
     WorkspaceResponse,
     WorkspaceUpdate,
 )
+from schema.user import UserShortResponse
 from services.workspace_service import WorkspaceService
 
 router = APIRouter(prefix="/workspaces", tags=["Workspaces"])
+
+
+@router.get("", response_model=List[WorkspaceResponse])
+async def list_workspaces(
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    ws_repo = WorkspaceRepositories(session)
+    return await ws_repo.list_for_user(current_user.id)
 
 
 @router.post("", response_model=WorkspaceResponse, status_code=status.HTTP_201_CREATED)
@@ -40,33 +52,31 @@ async def create_workspace(
         )
 
     try:
-        # 2. Đóng gói trong một Transaction duy nhất
-        async with session.begin():
-            workspace = await ws_repo.create(
-                name=data.name,
-                slug=data.slug,
-                owner_id=current_user.id,
-            )
+    # 1. ws_repo.create() chỉ nên làm: session.add(workspace) + await session.flush()
+    # Dùng flush() để workspace sinh ra id mà không cần commit sớm
+        workspace = await ws_repo.create(
+        name=data.name,
+        slug=data.slug,
+        owner_id=current_user.id,
+    )
 
-            await member_repo.add_member(
-                workspace_id=workspace.id,
-                user_id=current_user.id,
-                role=WorkspaceRole.OWNER,
-            )
-            
-            # Lưu ý: Nếu trong ws_repo.create() hoặc add_member() bạn có gọi session.commit(),
-            # hãy BỎ commit bên trong repo đi, để commit ngoài router/unit-of-work quản lý.
+    # 2. member_repo.add_member() tương tự: session.add(member)
+        await member_repo.add_member(
+        workspace_id=workspace.id,
+        user_id=current_user.id,
+        role=WorkspaceRole.OWNER,
+    )
 
-        # 3. Refresh lại workspace nếu cần nạp đầy đủ relationship/id trước khi serialize ra response_model
+    # 3. Commit toàn bộ thay đổi cùng một lúc (Atomicity)
+        await session.commit()
+
+    # 4. Refresh nếu response_model cần các trường do DB tự sinh (created_at, relationship, ...)
         await session.refresh(workspace)
         return workspace
 
-    except IntegrityError:
-        # Bắt trường hợp race-condition bị trùng slug ở tầng DB
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Slug workspace đã tồn tại"
-        )
+    except Exception as e:
+        await session.rollback()
+        raise e
 
 
 @router.get("/{workspace_id}", response_model=WorkspaceResponse)
@@ -127,6 +137,28 @@ async def delete_workspace(
 
 # --- Endpoints Quản lý Thành viên Workspace ---
 
+@router.get(
+    "/{workspace_id}/member-candidates",
+    response_model=List[UserShortResponse],
+)
+async def search_workspace_member_candidates(
+    workspace_id: uuid.UUID,
+    q: str = Query(..., min_length=2, max_length=100),
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    member_repo = WorkspaceMemberRepository(session)
+    service = WorkspaceService(member_repo)
+    await service.ensure_is_admin_or_owner(workspace_id, current_user.id)
+
+    search = q.strip()
+    if len(search) < 2:
+        return []
+
+    user_repo = UserRepositories(session)
+    return await user_repo.search_workspace_member_candidates(workspace_id, search)
+
+
 @router.get("/{workspace_id}/members", response_model=List[WorkspaceMemberResponse])
 async def list_workspace_members(
     workspace_id: uuid.UUID,
@@ -156,6 +188,10 @@ async def add_workspace_member(
     existing = await member_repo.get_member(workspace_id, data.user_id)
     if existing:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Người dùng đã là thành viên")
+
+    user_repo = UserRepositories(session)
+    if not await user_repo.get_by_id(data.user_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Không tìm thấy người dùng")
 
     return await member_repo.add_member(workspace_id, data.user_id, data.role)
 

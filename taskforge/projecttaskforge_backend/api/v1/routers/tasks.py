@@ -1,16 +1,19 @@
 import uuid
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
-from typing import List, Optional
 
 from api.deps import get_current_user
 from core.database import get_db
 from models.entities import User
-from repositories.model_repositories import ProjectRepository, TaskRepository
-from schema.task import TaskCreate, TaskResponse, TaskUpdate, TaskPriority, TaskStatus
-from repositories.model_repositories import WorkspaceMemberRepository, WorkspaceRole
+from models.enums import TaskPriority, TaskStatus, WorkspaceRole
+from repositories.model_repositories import (
+    ProjectRepository,
+    TaskRepository,
+    WorkspaceMemberRepository,
+)
+from schema.task import TaskCreate, TaskResponse, TaskUpdate
 
 router = APIRouter(tags=["Tasks"])
 
@@ -132,6 +135,17 @@ async def get_task(
     task = await task_repo.get_by_id(task_id)
     if not task:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Không tìm thấy task")
+
+    project_repo = ProjectRepository(session)
+    project = await project_repo.get_by_id(task.project_id)
+    if not project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Không tìm thấy task")
+
+    member_repo = WorkspaceMemberRepository(session)
+    member = await member_repo.get_member(project.workspace_id, current_user.id)
+    if not member:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Không tìm thấy task")
+
     return task
 
 

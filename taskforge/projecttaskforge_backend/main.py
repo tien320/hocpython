@@ -11,7 +11,6 @@ app = FastAPI(
     debug=settings.DEBUG,
 )
 
-# Cấu hình CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -20,7 +19,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Middleware bắt lỗi hệ thống và ghi log
+
 @app.middleware("http")
 async def exception_logging_middleware(request: Request, call_next):
     try:
@@ -32,7 +31,7 @@ async def exception_logging_middleware(request: Request, call_next):
             content={"detail": "Lỗi nội bộ hệ thống. Vui lòng kiểm tra lại log server."},
         )
 
-# Gắn toàn bộ router v1
+
 app.include_router(api_router)
 
 

@@ -1,0 +1,12 @@
+name: taskforgedev
+values:
+  - key: base_url
+    value: ''
+  - key: token
+    value: ''
+  - key: workspace_id
+    value: ''
+  - key: project_id
+    value: ''
+  - key: task_id
+    value: ''

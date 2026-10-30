@@ -1,5 +1,4 @@
 import uuid
-from typing import AsyncGenerator
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,7 +31,7 @@ async def get_current_user(
         raise credentials_exception
     try:
         user_id = uuid.UUID(user_id_str)
-    except ValueError:
+    except (TypeError, ValueError, AttributeError):
         raise credentials_exception
 
     # Khởi tạo instance kèm session

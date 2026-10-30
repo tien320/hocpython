@@ -13,7 +13,7 @@ class OrderRepository:
             status = data["status"],
             created_at = data["created_at"]
         )
-    def list_all():
+    def list_all(self):
         with self.db.get_connection() as conn:
             with conn.cursor() as cursor:
                 cursor.execute("select * from orders")

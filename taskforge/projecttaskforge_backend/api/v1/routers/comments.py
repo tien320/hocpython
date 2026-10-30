@@ -6,24 +6,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.deps import get_current_user
 from core.database import get_db
 from models.entities import User
-from repositories.model_repositories import CommentRepository, TaskRepository, WorkspaceRepositories, ProjectRepository
+from models.enums import WorkspaceRole
+from repositories.model_repositories import (
+    CommentRepository,
+    ProjectRepository,
+    TaskRepository,
+    WorkspaceMemberRepository,
+)
 from schema.comment import CommentCreate, CommentResponse, CommentUpdate
 
 router = APIRouter(tags=["Comments"])
 
 async def check_project_access(project_id: uuid.UUID, user_id: uuid.UUID, session: AsyncSession) -> bool:
-    # Truy vấn bảng thành viên project / workspace tùy schema của bạn:
-    # Ví dụ: kiểm tra trong ProjectMember hoặc WorkspaceMember qua Project
     project_repo = ProjectRepository(session)
     project = await project_repo.get_by_id(project_id)
     if not project:
         return False
-        
-    workspace_repo = WorkspaceRepositories(session)
-    return await workspace_repo.is_active_member(
-        workspace_id=project.workspace_id,
-        user_id=user_id
-    )
+
+    member_repo = WorkspaceMemberRepository(session)
+    return await member_repo.get_member(project.workspace_id, user_id) is not None
 
 @router.post("/tasks/{task_id}/comments", response_model=CommentResponse, status_code=status.HTTP_201_CREATED)
 async def add_comment(
@@ -48,8 +49,7 @@ async def add_comment(
         user_id=current_user.id,
         content=data.content.strip(),
     )
-    # Gán quan hệ user trực tiếp để serializer không cần query lại DB
-    new_comment.user = current_user
+    new_comment.author = current_user
     return new_comment
 
 @router.get("/tasks/{task_id}/comments", response_model=List[CommentResponse])
@@ -98,7 +98,7 @@ async def update_comment(
 
     # 3. Cập nhật
     updated = await comment_repo.update(comment_id, content=data.content.strip())
-    updated.user = current_user
+    updated.author = current_user
     return updated
 
 @router.delete(
@@ -139,7 +139,11 @@ async def delete_comment(
     # 3. Phân quyền xóa: Là tác giả HOẶC có vai trò Admin / Project Owner
     is_author = (comment.user_id == current_user.id)
     # Giả sử hàm helper hoặc trường current_user/role check được quyền admin
-    is_admin = getattr(current_user, "is_admin", False) 
+    project_repo = ProjectRepository(session)
+    project = await project_repo.get_by_id(task.project_id)
+    member_repo = WorkspaceMemberRepository(session)
+    member = await member_repo.get_member(project.workspace_id, current_user.id) if project else None
+    is_admin = member is not None and member.role in [WorkspaceRole.ADMIN, WorkspaceRole.OWNER]
 
     if not (is_author or is_admin):
         raise HTTPException(

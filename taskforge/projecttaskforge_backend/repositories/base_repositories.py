@@ -1,5 +1,5 @@
 import uuid
-from typing import Any, Generic, List, Optional, Type, TypeVar
+from typing import Generic, Type, TypeVar
 from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from core.database import Base
@@ -33,6 +33,9 @@ class BaseRepository(Generic[ModelType]):
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
     async def update(self, id: uuid.UUID, **kwargs):
+        if not kwargs:
+            return await self.get_by_id(id)
+
         stmt = (
             update(self.model).where(self.model.id ==id).values(**kwargs).returning(self.model)
         )
@@ -41,6 +44,6 @@ class BaseRepository(Generic[ModelType]):
         return result.scalar_one_or_none()
     async def delete(self, id: uuid.UUID):
         stmt = delete(self.model).where(self.model.id == id)
-        result = self.session.execute(stmt)
+        result = await self.session.execute(stmt)
         await self.session.commit()
         return result.rowcount > 0
