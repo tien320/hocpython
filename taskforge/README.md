@@ -98,3 +98,4 @@ taskforge/
    npm run dev
    ```
 4. Mở trình duyệt tại địa chỉ hiển thị trên terminal (mặc định: [http://localhost:5173](http://localhost:5173)). Frontend đã cấu hình proxy tự động chuyển tiếp request `/api/v1` về backend cổng `8000`.
+
